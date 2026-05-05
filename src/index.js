@@ -23,10 +23,13 @@ import { summarize } from './summarize.js'   // 步骤3：调用LLM生成简报
 import { writeOutput } from './output.js'    // 步骤4：写入Markdown和JSON文件
 
 async function main() {
-  // 从命令行参数获取主题ID（process.argv[0]=node, [1]=脚本路径, [2]=用户传的参数）
+  // 从命令行参数获取主题ID和选项
+  // process.argv[0]=node, [1]=脚本路径, [2]=主题ID, 后续是选项
   const topicId = process.argv[2]
+  const noDedup = process.argv.includes('--no-dedup')
+
   if (!topicId) {
-    console.error('Usage: npm run brief <topic-id>')
+    console.error('Usage: npm run brief <topic-id> [--no-dedup]')
     console.error('Example: npm run brief us-iran')
     process.exit(1)
   }
@@ -40,7 +43,7 @@ async function main() {
   // ── 步骤 2：抓取与过滤 ────────────────────────────────────
   // 并发拉取所有RSS源 → 时间窗口过滤 → 关键词匹配 → URL去重 → 排序截断
   console.log(`[2/4] Fetching news for "${config.title}"...`)
-  const items = await fetchAndFilter(config)
+  const items = await fetchAndFilter(config, { noDedup })
   console.log(`      Got ${items.length} items after filter+dedupe`)
 
   // 如果没有抓到任何新闻，直接退出
