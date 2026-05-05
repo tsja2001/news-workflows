@@ -1,0 +1,23 @@
+id: us-iran
+title: 美国伊朗局势速报
+
+sources:
+  # - name: BBC Middle East
+  #   url: "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml"
+  - name: Al Jazeera
+    url: "https://www.aljazeera.com/xml/rss/all.xml"
+
+filter:
+  keywords:
+    - Iran
+    - Iranian
+    - Tehran
+    - sanctions
+    - nuclear
+    - Strait of Hormuz
+    - Israel
+  lookbackHours: 36
+  maxItems: 40
+
+output:
+  dir: "/Users/yangzhuoran/program/ObsidianWithAI/NewsBriefs/美国伊朗局势"
