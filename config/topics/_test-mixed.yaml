@@ -1,0 +1,69 @@
+# ============================================================
+# Phase 2 测试用混合源配置
+# 包含所有 4 种 source 类型的示例配置
+# ============================================================
+
+id: _test-mixed
+title: 测试混合源
+
+sources:
+  # --- 类型 1: RSS（默认，向后兼容）---
+  - name: Al Jazeera (RSS)
+    type: rss
+    url: "https://www.aljazeera.com/xml/rss/all.xml"
+
+  # --- 类型 2: HTML 静态站（示例）---
+  # - name: 新华社国际 (HTML)
+  #   type: html
+  #   listUrl: "https://www.news.cn/world/"
+  #   encoding: utf-8
+  #   selectors:
+  #     articleLinks: ".dataList li a"
+  #     title: "h1.article-title"
+  #     content: "div.article-body"
+  #     publishedAt: "span.pub-time"
+  #     publishedAtAttr: "datetime"
+  #   linkPrefix: "https://www.news.cn"
+  #   maxArticles: 10
+
+  # --- 类型 3: API（需要配置 API key）---
+  # - name: NewsAPI (API)
+  #   type: api
+  #   endpoint: "https://newsapi.org/v2/everything"
+  #   params:
+  #     q: "Iran sanctions"
+  #     language: en
+  #     apiKey: "${NEWSAPI_KEY}"
+  #   responseShape:
+  #     itemsPath: "articles"
+  #     fields:
+  #       title: "title"
+  #       url: "url"
+  #       publishedAt: "publishedAt"
+  #       summary: "description"
+  #       source: "source.name"
+
+  # --- 类型 4: Playwright（需要 npx playwright install chromium）---
+  # - name: SPA 新闻站 (Playwright)
+  #   type: playwright
+  #   listUrl: "https://example.com/news"
+  #   waitFor: ".news-item"
+  #   waitTimeoutMs: 10000
+  #   selectors:
+  #     articleLinks: ".news-item a"
+  #     title: "h1"
+  #     content: "article"
+  #   blockResources: true
+  #   maxArticles: 15
+
+filter:
+  keywords:
+    - Iran
+    - sanctions
+    - nuclear
+    - oil
+  lookbackHours: 48
+  maxItems: 20
+
+output:
+  dir: "/Users/yangzhuoran/program/agents-workflow/news-workflows/data/_test-mixed"
