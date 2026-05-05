@@ -21,6 +21,7 @@ import { loadTopic } from './config.js'      // 步骤1：加载主题配置
 import { fetchAndFilter } from './fetch.js'  // 步骤2：抓取RSS + 过滤去重
 import { summarize } from './summarize.js'   // 步骤3：调用LLM生成简报
 import { writeOutput } from './output.js'    // 步骤4：写入Markdown和JSON文件
+import { shutdownPlaywright } from './fetch/playwright.js'
 
 async function main() {
   // 从命令行参数获取主题ID和选项
@@ -67,9 +68,13 @@ async function main() {
   console.log('Done.')
 }
 
-// 启动主流程，统一捕获错误
-main().catch(err => {
-  console.error('FAILED:', err.message)
-  console.error(err.stack)
-  process.exit(1)  // 非0退出码表示失败，外部调度系统可以据此判断
-})
+// 启动主流程，统一捕获错误，确保 Playwright browser 被关闭
+main()
+  .catch(err => {
+    console.error('FAILED:', err.message)
+    console.error(err.stack)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await shutdownPlaywright()
+  })

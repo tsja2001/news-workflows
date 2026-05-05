@@ -12,12 +12,17 @@
 
 import pLimit from 'p-limit'
 import { fetchFromRss } from './rss.js'
+import { fetchFromHtml } from './html.js'
+import { fetchFromApi } from './api.js'
+import { fetchFromPlaywright } from './playwright.js'
 import { applyFilters, sortAndTruncate } from './common.js'
 
 // 适配器注册表：source.type → fetch 函数
-// Phase 2 会加入 html、playwright、api 等
 const ADAPTERS = {
   rss: fetchFromRss,
+  html: fetchFromHtml,
+  api: fetchFromApi,
+  playwright: fetchFromPlaywright,
 }
 
 /**
