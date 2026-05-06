@@ -2,10 +2,31 @@ id: us-iran
 title: 美国伊朗局势速报
 
 sources:
-  # - name: BBC Middle East
-  #   url: "https://feeds.bbci.co.uk/news/world/middle_east/rss.xml"
+  # ── RSS 新闻源 ──────────────────────────────────────────
+
   - name: Al Jazeera
+    type: rss
     url: "https://www.aljazeera.com/xml/rss/all.xml"
+    fetchFullContent: true
+    fetchContentConcurrency: 3
+
+  - name: NPR World
+    type: rss
+    url: "https://feeds.npr.org/1001/rss.xml"
+
+  - name: The Guardian
+    type: rss
+    url: "https://www.theguardian.com/world/rss"
+
+  # ── HTML 辅助源（跳过关键词过滤，作为补充）──────────────
+
+  - name: HN (HTML)
+    type: html
+    listUrl: "https://news.ycombinator.com/"
+    skipKeywordFilter: true
+    selectors:
+      articleLinks: ".titleline > a"
+    maxArticles: 3
 
 filter:
   keywords:
@@ -16,8 +37,19 @@ filter:
     - nuclear
     - Strait of Hormuz
     - Israel
-  lookbackHours: 36
+    - Middle East
+    - diplomacy
+    - Persian Gulf
+    - Khamenei
+    - Pezeshkian
+    - IRGC
+    - IAEA
+    - JCPOA
+  lookbackHours: 72
   maxItems: 40
+
+dedup:
+  enabled: false
 
 output:
   dir: "/Users/yangzhuoran/program/ObsidianWithAI/NewsBriefs/美国伊朗局势"

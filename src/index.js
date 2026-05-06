@@ -30,48 +30,48 @@ async function main() {
   const noDedup = process.argv.includes('--no-dedup')
 
   if (!topicId) {
-    console.error('Usage: npm run brief <topic-id> [--no-dedup]')
-    console.error('Example: npm run brief us-iran')
+    console.error('用法: npm run brief <主题ID> [--no-dedup]')
+    console.error('示例: npm run brief us-iran')
     process.exit(1)
   }
 
   // ── 步骤 1：加载配置 ──────────────────────────────────────
   // 从 config/topics/<topicId>.yaml 读取主题配置
   // 配置里定义了新闻源、过滤关键词、输出目录等
-  console.log(`[1/4] Loading config for "${topicId}"...`)
+  console.log(`[1/4] 加载配置 "${topicId}"...`)
   const config = await loadTopic(topicId)
 
   // ── 步骤 2：抓取与过滤 ────────────────────────────────────
   // 并发拉取所有RSS源 → 时间窗口过滤 → 关键词匹配 → URL去重 → 排序截断
-  console.log(`[2/4] Fetching news for "${config.title}"...`)
+  console.log(`[2/4] 抓取新闻 "${config.title}"...`)
   const items = await fetchAndFilter(config, { noDedup })
-  console.log(`      Got ${items.length} items after filter+dedupe`)
+  console.log(`      过滤去重后共 ${items.length} 条`)
 
   // 如果没有抓到任何新闻，直接退出
   // 这很重要：不会用空内容覆盖昨天的输出文件
   if (items.length === 0) {
-    console.error('No items to summarize. Aborting.')
+    console.error('没有可总结的新闻，中止。')
     process.exit(1)
   }
 
   // ── 步骤 3：LLM 总结 ──────────────────────────────────────
   // 把过滤后的新闻条目发给大模型，生成结构化的简报（JSON格式）
-  console.log('[3/4] Summarizing with LLM...')
+  console.log('[3/4] LLM 总结中...')
   const report = await summarize(items, config)
 
   // ── 步骤 4：输出文件 ──────────────────────────────────────
   // 同时生成 Markdown（人读）和 JSON（程序读）两个文件
-  console.log('[4/4] Writing output...')
+  console.log('[4/4] 写入输出文件...')
   const { mdPath, jsonPath } = await writeOutput(report, items, config)
   console.log(`      ✓ ${mdPath}`)
   console.log(`      ✓ ${jsonPath}`)
-  console.log('Done.')
+  console.log('完成。')
 }
 
 // 启动主流程，统一捕获错误，确保 Playwright browser 被关闭
 main()
   .catch(err => {
-    console.error('FAILED:', err.message)
+    console.error('运行失败:', err.message)
     console.error(err.stack)
     process.exit(1)
   })

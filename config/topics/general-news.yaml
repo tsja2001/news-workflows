@@ -1,0 +1,39 @@
+id: general-news
+title: 每日新闻汇总
+
+sources:
+  # ── RSS 国际新闻 ────────────────────────────────────────
+
+  - name: Al Jazeera
+    type: rss
+    url: "https://www.aljazeera.com/xml/rss/all.xml"
+    fetchFullContent: true
+    fetchContentConcurrency: 3
+
+  - name: NPR World
+    type: rss
+    url: "https://feeds.npr.org/1001/rss.xml"
+
+  - name: The Guardian
+    type: rss
+    url: "https://www.theguardian.com/world/rss"
+
+  # ── HTML 科技新闻 ───────────────────────────────────────
+
+  - name: Hacker News
+    type: html
+    listUrl: "https://news.ycombinator.com/"
+    selectors:
+      articleLinks: ".titleline > a"
+    maxArticles: 10
+
+filter:
+  # 不过滤关键词，汇集各类新闻
+  lookbackHours: 24
+  maxItems: 50
+
+dedup:
+  enabled: false
+
+output:
+  dir: "/Users/yangzhuoran/program/ObsidianWithAI/NewsBriefs/每日新闻"

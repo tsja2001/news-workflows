@@ -125,6 +125,7 @@ export async function fetchFromApi(sourceConfig, options = {}) {
 
     const data = await body.json()
     const rawItems = getItems(data, responseShape.itemsPath)
+    console.log(`  [api] ${sourceConfig.name} API 返回 ${rawItems.length} 条`)
     const fields = responseShape.fields || {}
 
     return rawItems.map(raw => mapToNewsItem(raw, fields, sourceConfig.name))

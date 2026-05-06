@@ -28,6 +28,7 @@ export function filterByKeywords(items, keywords) {
   if (!keywords || keywords.length === 0) return items
   const lowered = keywords.map(k => k.toLowerCase())
   return items.filter(item => {
+    if (item._skipKeywordFilter) return true
     const text = `${item.title} ${item.summary}`.toLowerCase()
     return lowered.some(k => text.includes(k))
   })
@@ -64,12 +65,28 @@ export function sortAndTruncate(items, maxItems) {
  * @param {import('./types.js').NewsItem[]} items
  * @param {object} filterConfig - yaml 里的 filter 配置
  * @param {Set<string>} [seenUrls] - 已见过的 URL 集合
+ * @param {object} [options]
+ * @param {boolean} [options.noDedup] - 跳过 URL 去重（测试用）
  * @returns {import('./types.js').NewsItem[]}
  */
-export function applyFilters(items, filterConfig, seenUrls) {
+export function applyFilters(items, filterConfig, seenUrls, options = {}) {
+  const initialCount = items.length
   let result = items
   result = filterByTime(result, filterConfig.lookbackHours)
+  if (result.length < initialCount) {
+    console.log(`  时间过滤剔除 ${initialCount - result.length} 条（${filterConfig.lookbackHours}h 窗口）`)
+  }
+  const afterTime = result.length
   result = filterByKeywords(result, filterConfig.keywords)
-  result = dedupByUrl(result, seenUrls)
+  if (result.length < afterTime) {
+    console.log(`  关键词过滤剔除 ${afterTime - result.length} 条`)
+  }
+  const afterKw = result.length
+  if (!options.noDedup) {
+    result = dedupByUrl(result, seenUrls)
+    if (result.length < afterKw) {
+      console.log(`  URL 去重剔除 ${afterKw - result.length} 条`)
+    }
+  }
   return result
 }

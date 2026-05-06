@@ -32,6 +32,7 @@ const ADAPTERS = {
  * @param {object} filterConfig - yaml 里的 filter 配置（含 runtime）
  * @param {object} [options]
  * @param {Set<string>} [options.seenUrls] - 历史已见过的 URL 集合
+ * @param {boolean} [options.noDedup] - 跳过 URL 去重（测试用）
  * @returns {Promise<import('./types.js').NewsItem[]>}
  */
 export async function fetchAll(sources, filterConfig, options = {}) {
@@ -45,10 +46,19 @@ export async function fetchAll(sources, filterConfig, options = {}) {
         const type = s.type || 'rss' // 默认 rss，向后兼容
         const adapter = ADAPTERS[type]
         if (!adapter) {
-          console.error(`[fetch] 未知 source 类型: "${type}"，跳过 ${s.name || s.url}`)
+          console.error(`[fetch] 未知来源类型: "${type}"，跳过 ${s.name || s.url}`)
           return []
         }
-        return adapter(s, { retries: runtime.retries ?? 3 })
+        const url = s.url || s.listUrl || s.endpoint || ''
+        const shortUrl = url.length > 60 ? url.slice(0, 60) + '…' : url
+        console.log(`  [${type}] ${s.name} — ${shortUrl}`)
+        const items = await adapter(s, { retries: runtime.retries ?? 3 })
+        console.log(`  [${type}] ${s.name} → ${items.length} 条`)
+        // 标记 per-source 选项，供过滤管线使用
+        if (s.skipKeywordFilter) {
+          for (const item of items) item._skipKeywordFilter = true
+        }
+        return items
       })
     )
   )
@@ -56,7 +66,7 @@ export async function fetchAll(sources, filterConfig, options = {}) {
   const allItems = results.flat()
 
   // 统一过滤管线
-  let filtered = applyFilters(allItems, filterConfig, options.seenUrls)
+  let filtered = applyFilters(allItems, filterConfig, options.seenUrls, { noDedup: options.noDedup })
 
   // 排序 + 截断
   filtered = sortAndTruncate(filtered, filterConfig.maxItems)

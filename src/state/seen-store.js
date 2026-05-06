@@ -102,5 +102,6 @@ export async function pruneOldEntries(topicId, retentionDays = 7, storePath = DE
 
   if (pruned > 0) {
     await writeStore(store, storePath)
+    console.log(`  清理 ${topicId} 过期去重记录 ${pruned} 条`)
   }
 }

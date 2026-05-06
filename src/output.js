@@ -8,7 +8,7 @@
  *   2. <日期>-<主题标题>.json → 给程序读的 JSON 格式
  *
  * 设计要点：
- *   - 用日期作文件名 → 同一天跑多次会覆盖，天然幂等（结果一致）
+ *   - 文件名精确到秒 → 同一天多次运行不会互相覆盖
  *   - 字段缺失时显示"（无）"而不是报错 → LLM 偶尔会偷懒，要兜底
  *   - Markdown 有 YAML frontmatter → Obsidian 能识别为笔记属性
  */
@@ -16,13 +16,23 @@
 import fs from 'fs/promises'
 import path from 'path'
 
+function pad(n) { return String(n).padStart(2, '0') }
+
 /**
  * 获取今天的日期字符串，格式 YYYY-MM-DD
- * 用于文件名和 frontmatter
  */
 function todayStr() {
   const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/**
+ * 获取精确到秒的时间戳，格式 YYYY-MM-DD-HHmmss
+ * 用于文件名，保证同一天多次运行不覆盖
+ */
+function datetimeStr() {
+  const d = new Date()
+  return `${todayStr()}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
 }
 
 /**
@@ -106,9 +116,10 @@ export async function writeOutput(report, items, config) {
   await fs.mkdir(config.output.dir, { recursive: true })
 
   const date = todayStr()
+  const ts = datetimeStr()
 
-  // 文件名格式：2026-05-05-美国伊朗局势速报
-  const baseName = `${date}-${config.title}`
+  // 文件名格式：2026-05-05-143052-美国伊朗局势速报
+  const baseName = `${ts}-${config.title}`
   const mdPath = path.join(config.output.dir, `${baseName}.md`)
   const jsonPath = path.join(config.output.dir, `${baseName}.json`)
 

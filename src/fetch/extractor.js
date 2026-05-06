@@ -14,7 +14,7 @@
 
 import { request } from 'undici'
 import { Readability } from '@mozilla/readability'
-import { JSDOM } from 'jsdom'
+import { JSDOM, VirtualConsole } from 'jsdom'
 import * as cheerio from 'cheerio'
 
 const MIN_CONTENT_LENGTH = 100
@@ -51,7 +51,8 @@ async function fetchHtml(url, timeoutMs) {
  */
 export function extractWithReadability(html, url) {
   try {
-    const dom = new JSDOM(html, { url })
+    // 静默 VirtualConsole，防止 JSDOM 把页面的 CSS 解析错误输出到终端
+    const dom = new JSDOM(html, { url, virtualConsole: new VirtualConsole() })
     const reader = new Readability(dom.window.document)
     const article = reader.parse()
     if (!article) return null
@@ -75,6 +76,10 @@ export function extractWithReadability(html, url) {
 export function extractWithCheerio(html) {
   try {
     const $ = cheerio.load(html)
+
+    // 移除 style/script 标签，避免其内容（CSS/JS）被 .text() 当作正文提取
+    $('style, script, noscript, svg, link, meta').remove()
+
     const title = $('title').text() || $('h1').first().text() || ''
 
     // 按优先级尝试常见正文容器
@@ -136,7 +141,8 @@ export async function extractArticle(url, options = {}) {
 
     return result
   } catch (err) {
-    console.error(`[extractor] ${url} 失败: ${err.message}`)
+    const shortUrl = url.length > 60 ? url.slice(0, 60) + '…' : url
+    console.error(`[extractor] ${shortUrl} 失败: ${err.message}`)
     return { title: '', content: '', excerpt: '', byline: '' }
   }
 }

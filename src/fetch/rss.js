@@ -61,13 +61,15 @@ export async function fetchFromRss(sourceConfig, options = {}) {
               const article = await extractArticle(item.url)
               return { ...item, content: article.content }
             } catch (err) {
-              console.warn(`[rss] 正文回抓失败 ${item.url}: ${err.message}`)
+              const s = item.url.length > 60 ? item.url.slice(0, 60) + '…' : item.url
+              console.warn(`[rss] 正文回抓失败 ${s}: ${err.message}`)
               return { ...item, content: '' }
             }
           })
         )
       )
 
+      console.log(`  [rss] ${sourceConfig.name} 正文回抓完成`)
       return enriched
     }
 

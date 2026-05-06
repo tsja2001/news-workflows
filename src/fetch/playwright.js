@@ -96,14 +96,17 @@ export async function fetchFromPlaywright(sourceConfig, options = {}) {
       return []
     }
 
-    const links = await page.$$eval(selectors.articleLinks, els =>
-      els.slice(0, maxArticles).map(el => el.href).filter(Boolean)
+    const links = await page.$$eval(selectors.articleLinks, (els, limit) =>
+      els.slice(0, limit).map(el => el.href).filter(Boolean),
+      maxArticles
     )
 
     if (links.length === 0) {
       console.warn(`[playwright] ${sourceConfig.name} 列表页未提取到链接`)
       return []
     }
+
+    console.log(`  [playwright] ${sourceConfig.name} 列表页提取到 ${links.length} 个链接`)
 
     // 3. 逐个访问文章页提取内容
     const items = []
@@ -146,7 +149,8 @@ export async function fetchFromPlaywright(sourceConfig, options = {}) {
           content,
         })
       } catch (err) {
-        console.warn(`[playwright] ${sourceConfig.name} 文章抓取失败 ${link}: ${err.message}`)
+        const s = link.length > 60 ? link.slice(0, 60) + '…' : link
+        console.warn(`[playwright] ${sourceConfig.name} 文章抓取失败 ${s}: ${err.message}`)
       }
     }
 

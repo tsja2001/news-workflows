@@ -83,6 +83,9 @@ export function extractLinks(html, selector, linkPrefix, maxArticles) {
 export function extractWithSelectors(html, selectors) {
   const $ = cheerio.load(html)
 
+  // 移除 style/script 标签，避免 CSS/JS 被 .text() 当作正文提取
+  $('style, script, noscript, svg, link, meta').remove()
+
   let title = ''
   if (selectors.title) {
     title = $(selectors.title).first().text().trim()
@@ -139,6 +142,8 @@ export async function fetchFromHtml(sourceConfig, options = {}) {
       return []
     }
 
+    console.log(`  [html] ${sourceConfig.name} 列表页提取到 ${links.length} 个链接`)
+
     // 2. 并发抓取文章详情
     const limit = pLimit(3)
     const items = await Promise.all(
@@ -175,7 +180,8 @@ export async function fetchFromHtml(sourceConfig, options = {}) {
               content,
             }
           } catch (err) {
-            console.warn(`[html] ${sourceConfig.name} 文章抓取失败 ${link}: ${err.message}`)
+            const s = link.length > 60 ? link.slice(0, 60) + '…' : link
+            console.warn(`[html] ${sourceConfig.name} 文章抓取失败 ${s}: ${err.message}`)
             return null
           }
         })
