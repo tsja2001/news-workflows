@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "brief": "node src/index.js",
+    "audit": "node src/cli/audit.js",
     "test": "node --test src/**/*.test.js"
   },
   "dependencies": {

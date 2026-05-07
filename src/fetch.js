@@ -18,15 +18,14 @@ export { fetchAll }
  * @param {object} config - 主题配置对象（来自 YAML）
  * @param {object} [options]
  * @param {boolean} [options.noDedup] - 禁用历史去重
+ * @param {object} [options.auditor] - 审计日志记录器
  * @returns {Promise<Array>} 过滤去重后的新闻条目
  */
 export async function fetchAndFilter(config, options = {}) {
-  // dedup 生效条件：YAML 明确开启 + CLI 未传 --no-dedup
+  const auditor = options.auditor
   const dedupEnabled = !options.noDedup && config.dedup?.enabled
-  // within-batch 去重也要关掉的条件：CLI --no-dedup 或 YAML dedup 未启用
   const noDedup = options.noDedup || !config.dedup?.enabled
 
-  // 加载已见 URL + 清理过期记录
   let seenUrls
   if (dedupEnabled) {
     const { loadSeen, pruneOldEntries } = await import('./state/seen-store.js')
@@ -36,9 +35,8 @@ export async function fetchAndFilter(config, options = {}) {
     console.log(`  已加载 ${seenUrls.size} 条历史去重记录`)
   }
 
-  const items = await fetchAll(config.sources, config.filter, { seenUrls, noDedup })
+  const items = await fetchAll(config.sources, config.filter, { seenUrls, noDedup, auditor })
 
-  // 标记新见的 URL
   if (dedupEnabled && items.length > 0) {
     const { markSeen } = await import('./state/seen-store.js')
     await markSeen(config.id, items.map(i => i.url))

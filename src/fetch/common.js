@@ -67,26 +67,48 @@ export function sortAndTruncate(items, maxItems) {
  * @param {Set<string>} [seenUrls] - 已见过的 URL 集合
  * @param {object} [options]
  * @param {boolean} [options.noDedup] - 跳过 URL 去重（测试用）
+ * @param {object} [options.auditor] - 审计日志记录器
  * @returns {import('./types.js').NewsItem[]}
  */
 export function applyFilters(items, filterConfig, seenUrls, options = {}) {
+  const auditor = options.auditor
   const initialCount = items.length
   let result = items
+
+  // 时间过滤
+  const beforeTime = result.length
   result = filterByTime(result, filterConfig.lookbackHours)
-  if (result.length < initialCount) {
-    console.log(`  时间过滤剔除 ${initialCount - result.length} 条（${filterConfig.lookbackHours}h 窗口）`)
+  const droppedTime = beforeTime - result.length
+  if (droppedTime > 0) {
+    console.log(`  时间过滤剔除 ${droppedTime} 条（${filterConfig.lookbackHours}h 窗口）`)
   }
-  const afterTime = result.length
+  if (auditor) {
+    auditor.event('pipeline_filter', { stage: 'time', before: beforeTime, after: result.length, dropped: droppedTime })
+  }
+
+  // 关键词过滤
+  const beforeKw = result.length
   result = filterByKeywords(result, filterConfig.keywords)
-  if (result.length < afterTime) {
-    console.log(`  关键词过滤剔除 ${afterTime - result.length} 条`)
+  const droppedKw = beforeKw - result.length
+  if (droppedKw > 0) {
+    console.log(`  关键词过滤剔除 ${droppedKw} 条`)
   }
-  const afterKw = result.length
+  if (auditor) {
+    auditor.event('pipeline_filter', { stage: 'keyword', before: beforeKw, after: result.length, dropped: droppedKw })
+  }
+
+  // URL 去重
   if (!options.noDedup) {
+    const beforeDedup = result.length
     result = dedupByUrl(result, seenUrls)
-    if (result.length < afterKw) {
-      console.log(`  URL 去重剔除 ${afterKw - result.length} 条`)
+    const droppedDedup = beforeDedup - result.length
+    if (droppedDedup > 0) {
+      console.log(`  URL 去重剔除 ${droppedDedup} 条`)
+    }
+    if (auditor) {
+      auditor.event('pipeline_filter', { stage: 'url_dedup', before: beforeDedup, after: result.length, dropped: droppedDedup })
     }
   }
+
   return result
 }

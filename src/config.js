@@ -31,6 +31,56 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 /**
+ * 校验单个 source 配置的合法性
+ * @param {object} s - source 配置
+ * @param {string} topicId - 主题 ID（用于错误信息）
+ */
+function validateSource(s, topicId) {
+  const prefix = `Config ${topicId}/${s.name || 'unnamed'}`
+
+  // type: web 必须有 url 或 urls
+  if (s.type === 'web') {
+    const hasUrl = typeof s.url === 'string' && s.url.length > 0
+    const hasUrls = Array.isArray(s.urls) && s.urls.length > 0
+
+    if (!hasUrl && !hasUrls) {
+      throw new Error(`${prefix}: type=web 必须配置 'url' 或 'urls'`)
+    }
+    if (hasUrl && hasUrls) {
+      throw new Error(`${prefix}: 'url' 和 'urls' 互斥，只能有一个`)
+    }
+
+    // 检查 {page} 和 pages 配对
+    const checkTemplate = (url, pages) => {
+      const hasTemplate = url.includes('{page}')
+      if (hasTemplate && pages == null) {
+        throw new Error(`${prefix}: URL "${url}" 包含 {page} 占位符但未配置 pages`)
+      }
+      if (!hasTemplate && pages != null) {
+        throw new Error(`${prefix}: URL "${url}" 不含 {page} 占位符，不能配置 pages`)
+      }
+    }
+
+    if (hasUrl) {
+      checkTemplate(s.url, s.pages)
+    } else {
+      for (const entry of s.urls) {
+        const u = typeof entry === 'string' ? entry : entry.url
+        const p = typeof entry === 'string' ? s.pages : (entry.pages ?? s.pages)
+        checkTemplate(u, p)
+      }
+    }
+  }
+
+  // maxArticles 硬上限
+  if (s.maxArticles != null) {
+    if (typeof s.maxArticles !== 'number' || s.maxArticles < 1 || s.maxArticles > 100) {
+      throw new Error(`${prefix}: maxArticles 必须在 1-100 之间，当前为 ${s.maxArticles}`)
+    }
+  }
+}
+
+/**
  * 递归替换字符串中的 ${VAR} 为环境变量值
  * 未定义的变量明确报错，不静默替换为空字符串
  *
@@ -79,11 +129,16 @@ export async function loadTopic(topicId) {
   // ${VAR} 替换为环境变量
   config = resolveEnvVars(config)
 
-  // 校验必填字段 —— 配置写错了就在这里直接报错，方便排查
+  // 校验必填字段
   if (!config.id) throw new Error(`Config ${topicId}: missing 'id'`)
   if (!config.title) throw new Error(`Config ${topicId}: missing 'title'`)
   if (!config.sources?.length) throw new Error(`Config ${topicId}: no sources`)
   if (!config.output?.dir) throw new Error(`Config ${topicId}: missing 'output.dir'`)
+
+  // 校验每个 source 配置
+  for (const s of config.sources) {
+    validateSource(s, topicId)
+  }
 
   return config
 }
