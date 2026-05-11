@@ -4,3 +4,6 @@ data/
 *.log
 /state/
 /logs/
+
+# Phase 2.5 sessions
+state/sessions/

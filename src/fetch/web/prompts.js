@@ -80,6 +80,7 @@ confidence 判定：
 export function buildExtractListUserPrompt(currentUrl, cleanedHtml, hint, options = {}) {
   let prompt = `URL: ${currentUrl}\n`
   if (hint) prompt += `提示: ${hint}\n`
+  if (options.maxItems) prompt += `最多提取 ${options.maxItems} 条\n`
   if (options.section) prompt += `当前页面属于: ${options.section}\n`
   prompt += `\nHTML:\n${cleanedHtml}`
   return prompt

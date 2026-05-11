@@ -1,0 +1,661 @@
+id: global-geopolitical-conflicts
+title: 全球地缘冲突速报
+
+sources:
+  # ============================================================
+  # 1. 全球通讯社 / 综合国际新闻：负责兜底全球突发
+  # ============================================================
+
+  - name: Reuters 全球与区域
+    type: web
+    urls:
+      - url: "https://www.reuters.com/world/"
+        hint: "全球国际新闻总览，优先提取战争、冲突、外交危机、制裁、军事部署、边境紧张等内容"
+      - url: "https://www.reuters.com/world/europe/"
+        hint: "欧洲、俄乌、北约、欧盟安全局势"
+      - url: "https://www.reuters.com/world/middle-east/"
+        hint: "中东、伊朗、以色列、巴以、黎巴嫩、叙利亚、也门、红海、霍尔木兹"
+      - url: "https://www.reuters.com/world/africa/"
+        hint: "非洲冲突、苏丹、萨赫勒、刚果金、索马里、埃塞俄比亚等"
+      - url: "https://www.reuters.com/world/asia-pacific/"
+        hint: "亚太安全、台海、南海、朝鲜半岛、日韩、东南亚"
+      - url: "https://www.reuters.com/world/china/"
+        hint: "中国周边、台海、南海、中美战略竞争相关内容"
+      - url: "https://www.reuters.com/world/americas/"
+        hint: "美洲安全、海地、委内瑞拉、圭亚那、拉美政治与边境危机"
+      - url: "https://www.reuters.com/world/iran/"
+        hint: "伊朗战争、核问题、霍尔木兹海峡、中东升级风险"
+    maxArticles: 80
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 3
+    blockResources: true
+
+  - name: AP 国际新闻与冲突专题
+    type: web
+    urls:
+      - url: "https://apnews.com/world-news"
+        hint: "AP 全球新闻总览"
+      - url: "https://apnews.com/hub/international-news/"
+        hint: "AP 国际新闻聚合，重点提取 Iran war、Russia-Ukraine war、China、Middle East 等专题"
+      - url: "https://apnews.com/hub/israel-hamas-war"
+        hint: "巴以、加沙、以色列、哈马斯及相关中东冲突"
+      - url: "https://apnews.com/hub/russia-ukraine"
+        hint: "俄乌战争、欧洲安全、北约援助"
+      - url: "https://apnews.com/hub/middle-east"
+        hint: "中东地区战争、外交、袭击、停火与升级"
+      - url: "https://apnews.com/hub/africa"
+        hint: "非洲地区安全与冲突"
+      - url: "https://apnews.com/hub/asia-pacific"
+        hint: "亚太安全、台海、南海、朝鲜半岛"
+      - url: "https://apnews.com/hub/latin-america"
+        hint: "拉美地区安全、边境、政局与危机"
+    maxArticles: 80
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 3
+    blockResources: true
+
+  - name: Al Jazeera 全球与中东
+    type: web
+    urls:
+      - url: "https://www.aljazeera.com/news/"
+        hint: "全球新闻，重点提取战争、冲突、抗议、制裁、外交危机"
+      - url: "https://www.aljazeera.com/middle-east/"
+        hint: "中东局势、巴以、伊朗、黎巴嫩、叙利亚、也门、红海"
+      - url: "https://www.aljazeera.com/europe/"
+        hint: "欧洲、俄乌、北约、欧盟安全"
+      - url: "https://www.aljazeera.com/asia/"
+        hint: "亚洲冲突、南亚、东南亚、朝鲜半岛、台海"
+      - url: "https://www.aljazeera.com/africa/"
+        hint: "非洲冲突、苏丹、萨赫勒、刚果金、索马里"
+      - url: "https://www.aljazeera.com/where/latin-america/"
+        hint: "拉美危机、海地、委内瑞拉、圭亚那等"
+    maxArticles: 80
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 3
+    blockResources: true
+
+  - name: Al Jazeera RSS 备份
+    type: rss
+    url: "https://www.aljazeera.com/xml/rss/all.xml"
+    fetchFullContent: true
+
+  - name: Guardian 世界与地区
+    type: web
+    urls:
+      - url: "https://www.theguardian.com/world"
+        hint: "世界新闻总览，关注战争、冲突、外交危机、人道危机"
+      - url: "https://www.theguardian.com/world/ukraine"
+        hint: "俄乌战争"
+      - url: "https://www.theguardian.com/world/middleeast"
+        hint: "中东、巴以、伊朗、红海、黎巴嫩、叙利亚"
+      - url: "https://www.theguardian.com/world/africa"
+        hint: "非洲地区冲突与政治危机"
+      - url: "https://www.theguardian.com/world/asia-pacific"
+        hint: "亚太安全、台海、南海、朝鲜半岛"
+      - url: "https://www.theguardian.com/world/europe-news"
+        hint: "欧洲安全、北约、俄罗斯、巴尔干"
+      - url: "https://www.theguardian.com/world/americas"
+        hint: "美洲地区安全危机"
+    maxArticles: 70
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 3
+    blockResources: true
+
+  - name: France24 国际与地区
+    type: web
+    urls:
+      - url: "https://www.france24.com/en/international/"
+        hint: "国际新闻总览"
+      - url: "https://www.france24.com/en/middle-east/"
+        hint: "中东冲突、伊朗、巴以、黎巴嫩、叙利亚、也门"
+      - url: "https://www.france24.com/en/africa/"
+        hint: "非洲冲突、政变、内战、恐袭、人道危机"
+      - url: "https://www.france24.com/en/europe/"
+        hint: "欧洲安全、俄乌、北约、欧盟"
+      - url: "https://www.france24.com/en/asia-pacific/"
+        hint: "亚太安全、台海、南海、朝鲜半岛、南亚"
+      - url: "https://www.france24.com/en/americas/"
+        hint: "美洲安全、海地、委内瑞拉、拉美危机"
+    maxArticles: 70
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 3
+    blockResources: true
+
+  - name: DW 国际新闻
+    type: web
+    urls:
+      - url: "https://www.dw.com/en/top-stories/s-9097"
+        hint: "德国之声国际新闻总览"
+      - url: "https://www.dw.com/en/world/s-1429"
+        hint: "全球新闻、国际关系、战争与外交危机"
+      - url: "https://www.dw.com/en/europe/s-1433"
+        hint: "欧洲、俄乌、北约、欧盟安全"
+      - url: "https://www.dw.com/en/middle-east/s-14207"
+        hint: "中东冲突、伊朗、巴以、黎巴嫩、叙利亚"
+      - url: "https://www.dw.com/en/africa/s-12756"
+        hint: "非洲安全与冲突"
+      - url: "https://www.dw.com/en/asia/s-12758"
+        hint: "亚洲安全、台海、南海、朝鲜半岛、南亚"
+    maxArticles: 60
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  # ============================================================
+  # 2. 国际组织 / 冲突数据 / 人道危机：用于校验和补充背景
+  # ============================================================
+
+  - name: 联合国和平与安全
+    type: web
+    urls:
+      - url: "https://dppa.dfs.un.org/en/peace-and-security-news"
+        hint: "联合国和平与安全新闻，关注安理会、斡旋、停火、人道与维和"
+      - url: "https://press.un.org/en/security-council"
+        hint: "联合国安理会会议与声明，提取涉冲突国家、决议、制裁、停火、维和信息"
+      - url: "https://main.un.org/securitycouncil/en"
+        hint: "联合国安理会动态"
+    maxArticles: 50
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  - name: ReliefWeb 全球人道危机
+    type: web
+    urls:
+      - url: "https://reliefweb.int/updates"
+        hint: "全球人道主义更新，重点关注战争、流离失所、饥荒、难民、援助受阻"
+      - url: "https://reliefweb.int/disasters"
+        hint: "全球灾害与冲突相关人道危机"
+    maxArticles: 70
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  - name: International Crisis Group 冲突预警
+    type: web
+    urls:
+      - url: "https://www.crisisgroup.org/latest-updates"
+        hint: "全球冲突最新更新与分析"
+      - url: "https://www.crisisgroup.org/global"
+        hint: "CrisisWatch 全球冲突追踪"
+      - url: "https://www.crisisgroup.org/middle-east-north-africa"
+        hint: "中东与北非冲突预警"
+      - url: "https://www.crisisgroup.org/europe-central-asia"
+        hint: "欧洲、中亚、俄乌、高加索、巴尔干"
+      - url: "https://www.crisisgroup.org/asia"
+        hint: "亚洲冲突预警"
+      - url: "https://www.crisisgroup.org/africa"
+        hint: "非洲冲突预警"
+      - url: "https://www.crisisgroup.org/latin-america-caribbean"
+        hint: "拉美与加勒比冲突、安全危机"
+    maxArticles: 60
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  - name: ACLED 冲突数据与分析
+    type: web
+    urls:
+      - url: "https://acleddata.com/updates"
+        hint: "ACLED 最新冲突更新，提取各地区暴力事件、冲突趋势、抗议、武装组织动态"
+      - url: "https://acleddata.com/global-analysis"
+        hint: "全球冲突趋势分析"
+      - url: "https://acleddata.com/conflict-monitors"
+        hint: "重点冲突监测平台，包括乌克兰等"
+      - url: "https://acleddata.com/series/conflict-watchlist-2026"
+        hint: "2026 年冲突风险观察"
+    maxArticles: 50
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  - name: CFR 全球冲突追踪
+    type: web
+    url: "https://www.cfr.org/global-conflict-tracker"
+    hint: "全球冲突地图和冲突风险概览，适合补充背景和判断冲突等级"
+    maxArticles: 40
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  # ============================================================
+  # 3. 官方与安全组织：用于补充外交、军援、制裁、北约/欧盟立场
+  # ============================================================
+
+  - name: NATO 与欧洲安全
+    type: web
+    urls:
+      - url: "https://www.nato.int/cps/en/natohq/news.htm"
+        hint: "北约新闻，关注俄乌、东欧防务、军演、扩员、集体防御"
+      - url: "https://www.eeas.europa.eu/eeas/news_en"
+        hint: "欧盟对外行动署，关注制裁、外交声明、冲突调停"
+    maxArticles: 40
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  - name: 美国外交与国防
+    type: web
+    urls:
+      - url: "https://www.state.gov/press-releases/"
+        hint: "美国国务院新闻，关注制裁、外交声明、冲突调停、地区安全"
+      - url: "https://www.defense.gov/News/News-Stories/"
+        hint: "美国国防部新闻，关注军事部署、军援、海上安全、联合作战"
+    maxArticles: 40
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  # ============================================================
+  # 4. 重点地区补盲：避免只依赖欧美大媒体
+  # ============================================================
+
+  - name: 俄乌与俄罗斯视角
+    type: web
+    urls:
+      - url: "https://kyivindependent.com/news/"
+        hint: "乌克兰视角，俄乌战争、前线、军援、外交"
+      - url: "https://www.pravda.com.ua/eng/news/"
+        hint: "乌克兰媒体英文新闻，关注俄乌战争"
+      - url: "https://meduza.io/en"
+        hint: "俄罗斯独立媒体英文版，关注俄罗斯国内与俄乌战争"
+      - url: "https://www.themoscowtimes.com/"
+        hint: "俄罗斯相关英文新闻，关注战争、制裁、俄国内政"
+      - url: "https://www.understandingwar.org/publications"
+        hint: "ISW 战争研究所，俄乌、中东、军事态势分析"
+    maxArticles: 70
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  - name: 中东地区媒体
+    type: web
+    urls:
+      - url: "https://www.timesofisrael.com/"
+        hint: "以色列视角，巴以、加沙、伊朗、黎巴嫩、以色列国内安全"
+      - url: "https://www.jpost.com/"
+        hint: "以色列与中东新闻，关注伊朗、真主党、哈马斯、地区战争"
+      - url: "https://www.iranintl.com/en/latest"
+        hint: "伊朗相关新闻，关注伊朗、核问题、制裁、地区战争"
+      - url: "https://www.middleeasteye.net/news"
+        hint: "中东地区新闻，关注巴以、伊朗、海湾、土耳其、叙利亚、也门"
+      - url: "https://www.arabnews.com/world"
+        hint: "阿拉伯地区媒体视角，关注中东外交、安全与冲突"
+    maxArticles: 70
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  - name: 亚太安全与中国周边
+    type: web
+    urls:
+      - url: "https://www.scmp.com/news/china/diplomacy"
+        hint: "中国外交、周边安全、中美、中欧、印太"
+      - url: "https://www.scmp.com/news/china/military"
+        hint: "中国军事、台海、南海、印太安全"
+      - url: "https://www.scmp.com/news/asia"
+        hint: "亚洲地区安全与政治"
+      - url: "https://focustaiwan.tw/cross-strait"
+        hint: "台海、两岸、安全与外交"
+      - url: "https://en.yna.co.kr/north-korea"
+        hint: "朝鲜半岛、朝鲜导弹、韩美日安全合作"
+      - url: "https://www3.nhk.or.jp/nhkworld/en/news/"
+        hint: "日本与亚太新闻，关注朝鲜半岛、东海、南海、印太"
+    maxArticles: 70
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  - name: 南亚安全
+    type: web
+    urls:
+      - url: "https://www.thehindu.com/news/international/"
+        hint: "印度媒体国际新闻，关注印巴、克什米尔、印度洋、中国周边"
+      - url: "https://indianexpress.com/section/world/"
+        hint: "印度媒体世界新闻，关注南亚安全、印巴、阿富汗"
+      - url: "https://www.dawn.com/world"
+        hint: "巴基斯坦媒体国际新闻，关注印巴、克什米尔、阿富汗"
+      - url: "https://www.dawn.com/pakistan"
+        hint: "巴基斯坦国内安全、边境、恐袭、阿富汗相关"
+    maxArticles: 60
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  - name: 非洲冲突与安全
+    type: web
+    urls:
+      - url: "https://sudantribune.com/"
+        hint: "苏丹战争、RSF、达尔富尔、南苏丹、非洲之角"
+      - url: "https://www.africanews.com/"
+        hint: "非洲新闻总览，关注政变、冲突、恐袭、难民、人道危机"
+      - url: "https://www.theeastafrican.co.ke/tea/news"
+        hint: "东非安全，刚果金、卢旺达、索马里、埃塞俄比亚、南苏丹"
+      - url: "https://www.rfi.fr/en/africa/"
+        hint: "法语非洲地区英文报道，关注萨赫勒、西非、刚果金、苏丹"
+    maxArticles: 70
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  - name: 美洲与加勒比安全
+    type: web
+    urls:
+      - url: "https://insightcrime.org/news/"
+        hint: "拉美有组织犯罪、海地安全、委内瑞拉、边境与武装组织"
+      - url: "https://www.miamiherald.com/news/nation-world/world/americas/haiti/"
+        hint: "海地安全危机、帮派暴力、国际干预"
+      - url: "https://www.caribbeannewsglobal.com/"
+        hint: "加勒比地区新闻，关注海地、委内瑞拉、圭亚那等"
+    maxArticles: 50
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+  # ============================================================
+  # 5. 中文信息源：补充中文语境和中国官方/主流报道
+  # ============================================================
+
+  - name: 中文国际新闻源
+    type: web
+    urls:
+      - url: "https://www.news.cn/world/"
+        hint: "新华社国际新闻，关注中国官方视角下的全球冲突、外交、制裁与安全议题"
+      - url: "https://news.cctv.com/world/"
+        hint: "央视国际新闻，关注全球冲突与中国相关外交表态"
+      - url: "https://world.huanqiu.com/"
+        hint: "环球网国际新闻，关注大国博弈、地区冲突、军事与外交"
+    maxArticles: 60
+    extractDepth: deep
+    detailExtraction: auto
+    detailConcurrency: 2
+    blockResources: true
+
+filter:
+  keywords:
+    # 通用冲突词：英文
+    - conflict
+    - war
+    - warfare
+    - crisis
+    - clashes
+    - fighting
+    - attack
+    - attacks
+    - strike
+    - strikes
+    - airstrike
+    - missile
+    - missiles
+    - drone
+    - drones
+    - shelling
+    - artillery
+    - troops
+    - military
+    - army
+    - navy
+    - air force
+    - defense
+    - defence
+    - border
+    - borders
+    - ceasefire
+    - truce
+    - escalation
+    - sanctions
+    - nuclear
+    - hostage
+    - hostages
+    - insurgency
+    - militants
+    - militia
+    - rebels
+    - terrorism
+    - blockade
+    - invasion
+    - offensive
+    - counteroffensive
+    - peace talks
+    - peace deal
+    - security council
+    - humanitarian crisis
+    - displaced
+    - refugees
+    - famine
+
+    # 通用冲突词：中文
+    - 冲突
+    - 战争
+    - 战事
+    - 危机
+    - 交火
+    - 袭击
+    - 空袭
+    - 打击
+    - 导弹
+    - 无人机
+    - 炮击
+    - 军事
+    - 军队
+    - 部队
+    - 防务
+    - 边境
+    - 停火
+    - 休战
+    - 升级
+    - 制裁
+    - 核问题
+    - 人质
+    - 民兵
+    - 叛军
+    - 恐袭
+    - 恐怖主义
+    - 封锁
+    - 入侵
+    - 攻势
+    - 和谈
+    - 安理会
+    - 人道危机
+    - 难民
+    - 流离失所
+    - 饥荒
+
+    # 俄乌 / 欧洲 / 北约
+    - Ukraine
+    - Ukrainian
+    - Russia-Ukraine
+    - Kyiv
+    - Donbas
+    - Crimea
+    - Black Sea
+    - NATO
+    - Article 5
+    - Baltic
+    - Belarus
+    - Moldova
+    - Transnistria
+    - Kosovo
+    - Balkans
+    - Armenia
+    - Azerbaijan
+    - Nagorno-Karabakh
+    - 俄乌
+    - 乌克兰
+    - 俄罗斯
+    - 北约
+    - 克里米亚
+    - 黑海
+    - 科索沃
+    - 巴尔干
+    - 亚美尼亚
+    - 阿塞拜疆
+    - 纳卡
+
+    # 中东 / 北非
+    - Israel
+    - Gaza
+    - Hamas
+    - Palestine
+    - Palestinian
+    - West Bank
+    - Iran
+    - Iranian
+    - Tehran
+    - Hezbollah
+    - Lebanon
+    - Syria
+    - Yemen
+    - Houthi
+    - Houthis
+    - Red Sea
+    - Strait of Hormuz
+    - Hormuz
+    - Iraq
+    - Kurd
+    - Kurdish
+    - Gulf
+    - 巴以
+    - 以色列
+    - 加沙
+    - 哈马斯
+    - 巴勒斯坦
+    - 约旦河西岸
+    - 伊朗
+    - 德黑兰
+    - 真主党
+    - 黎巴嫩
+    - 叙利亚
+    - 也门
+    - 胡塞
+    - 红海
+    - 霍尔木兹
+    - 伊拉克
+    - 库尔德
+
+    # 亚太 / 中国周边 / 朝鲜半岛 / 南亚
+    - Taiwan
+    - Taiwan Strait
+    - South China Sea
+    - East China Sea
+    - Philippines
+    - North Korea
+    - Korean Peninsula
+    - Pyongyang
+    - missile test
+    - India-Pakistan
+    - Kashmir
+    - Afghanistan
+    - Taliban
+    - Myanmar
+    - Rohingya
+    - 台海
+    - 台湾海峡
+    - 南海
+    - 东海
+    - 菲律宾
+    - 朝鲜
+    - 朝鲜半岛
+    - 平壤
+    - 导弹试射
+    - 印巴
+    - 克什米尔
+    - 阿富汗
+    - 塔利班
+    - 缅甸
+    - 罗兴亚
+
+    # 非洲重点冲突
+    - Sudan
+    - Darfur
+    - RSF
+    - South Sudan
+    - Sahel
+    - Mali
+    - Niger
+    - Burkina Faso
+    - DRC
+    - Congo
+    - Rwanda
+    - M23
+    - Somalia
+    - Somaliland
+    - Ethiopia
+    - Tigray
+    - Mozambique
+    - Cabo Delgado
+    - Libya
+    - Central African Republic
+    - 苏丹
+    - 达尔富尔
+    - 南苏丹
+    - 萨赫勒
+    - 马里
+    - 尼日尔
+    - 布基纳法索
+    - 刚果金
+    - 卢旺达
+    - 索马里
+    - 索马里兰
+    - 埃塞俄比亚
+    - 提格雷
+    - 莫桑比克
+    - 利比亚
+    - 中非共和国
+
+    # 美洲 / 加勒比
+    - Haiti
+    - Port-au-Prince
+    - Venezuela
+    - Guyana
+    - Essequibo
+    - Colombia
+    - Ecuador
+    - cartel
+    - gang violence
+    - 海地
+    - 太子港
+    - 委内瑞拉
+    - 圭亚那
+    - 埃塞奎博
+    - 哥伦比亚
+    - 厄瓜多尔
+    - 贩毒集团
+    - 帮派暴力
+
+  lookbackHours: 72
+  maxItems: 180
+
+  runtime:
+    concurrency:
+      rss: 8
+      web: 2
+      default: 4
+    sourceTimeoutMs: 20000
+    retries: 2
+
+dedup:
+  enabled: true
+  retentionDays: 10
+
+output:
+  dir: "/Users/yangzhuoran/program/ObsidianWithAI/NewsBriefs/全球地缘冲突"

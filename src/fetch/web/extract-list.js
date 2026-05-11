@@ -86,15 +86,16 @@ export async function extractList(html, pageUrl, options = {}) {
   const log = createLogger(`web/list`)
   const hint = options.hint
   const extractDepth = options.extractDepth || 'deep'
+  const maxItems = options.maxItems || 50
   const retries = options.retries ?? 3
   const auditor = options.auditor
   const model = process.env.LLM_MODEL || 'gpt-4o-mini'
 
   const depthLabel = extractDepth === 'deep' ? '深度提取' : '提取'
-  log.step(`AI ${depthLabel}列表`, { htmlLen: html.length, model })
+  log.step(`AI ${depthLabel}列表`, { htmlLen: html.length, maxItems, model })
 
   const systemPrompt = extractDepth === 'deep' ? LIST_EXTRACT_DEEP_SYSTEM : EXTRACT_LIST_SYSTEM
-  const userPrompt = buildExtractListUserPrompt(pageUrl, html, hint)
+  const userPrompt = buildExtractListUserPrompt(pageUrl, html, hint, { maxItems })
   const startMs = Date.now()
 
   try {

@@ -1,16 +1,16 @@
 /**
  * ============================================================
- * 输出模块 — 将简报写入 Markdown 和 JSON 文件
+ * 输出模块 — 将简报写入 Markdown 文件
  * ============================================================
  *
- * 每次运行生成两个文件到配置中指定的目录：
- *   1. <日期>-<主题标题>.md   → 给人看的 Markdown 格式
- *   2. <日期>-<主题标题>.json → 给程序读的 JSON 格式
+ * 每次运行生成一个 Markdown 文件到配置中指定的目录：
+ *   <日期>-<主题标题>.md → 给人看的 Markdown 格式（主编深加工版）
  *
  * 设计要点：
  *   - 文件名精确到秒 → 同一天多次运行不会互相覆盖
  *   - 字段缺失时显示"（无）"而不是报错 → LLM 偶尔会偷懒，要兜底
  *   - Markdown 有 YAML frontmatter → Obsidian 能识别为笔记属性
+ *   - keyDevelopments 是对象数组，每条有 title/detail/importance
  */
 
 import fs from 'fs/promises'
@@ -38,14 +38,17 @@ function datetimeStr() {
 /**
  * 构建 Markdown 内容
  *
- * 结构：
+ * 结构（主编深加工版）：
  *   YAML frontmatter（Obsidian 属性）
  *   → 标题
- *   → 一句话概览
- *   → 关键变化
+ *   → 本期概览
+ *   → 关键变化（每条含标题、详细分析、重要度）
+ *   → 整体背景
  *   → 时间线
- *   → 风险与观察
+ *   → 值得关注的信号
+ *   → 风险判断
  *   → 信息缺口
+ *   → 主编复盘
  *   → 来源链接
  *
  * @param {object} report - LLM 返回的简报 JSON
@@ -57,10 +60,14 @@ function buildMarkdown(report, items, config) {
   const date = todayStr()
   const generatedAt = new Date().toISOString()
 
-  // 将报告各字段转为 Markdown 列表格式
-  // 每个字段都做了兜底：没内容就显示"（无）"
-  const keyDev = (report.keyDevelopments || []).map((d, i) => `${i + 1}. ${d}`).join('\n') || '（无）'
+  // keyDevelopments 现在是对象数组，每条有 title/detail/importance
+  const keyDev = (report.keyDevelopments || []).map((d, i) => {
+    const imp = d.importance === 'high' ? '🔴 高关注' : '🟡 中等'
+    return `${i + 1}. **${d.title}** _[${imp}]_\n\n   ${d.detail}`
+  }).join('\n\n') || '（无）'
+
   const timeline = (report.timeline || []).map(t => `- ${t.time} ${t.event}`).join('\n') || '（无）'
+  const signals = (report.signals || []).map(s => `- ${s}`).join('\n') || '（无）'
   const risks = (report.risks || []).map(r => `- ${r}`).join('\n') || '（无）'
   const unknowns = (report.unknowns || []).map(u => `- ${u}`).join('\n') || '（无）'
 
@@ -77,25 +84,37 @@ sourceCount: ${items.length}
 
 # ${config.title}
 
-## 一句话概览
+## 本期概览
 
-${report.summary || '（无）'}
+${report.overview || '（无）'}
 
 ## 关键变化
 
 ${keyDev}
 
+## 整体背景
+
+${report.context || '（无）'}
+
 ## 时间线
 
 ${timeline}
 
-## 风险与观察
+## 值得关注的信号
+
+${signals}
+
+## 风险判断
 
 ${risks}
 
 ## 信息缺口
 
 ${unknowns}
+
+## 主编复盘
+
+${report.editorReview || '（无）'}
 
 ## 来源
 
@@ -104,41 +123,26 @@ ${sources}
 }
 
 /**
- * 将简报写入文件（Markdown + JSON）
+ * 将简报写入 Markdown 文件
  *
  * @param {object} report - LLM 返回的简报 JSON
  * @param {Array}  items  - 原始新闻条目
  * @param {object} config - 主题配置（含 output.dir）
- * @returns {Promise<{mdPath: string, jsonPath: string}>} 输出文件的路径
+ * @returns {Promise<string>} 输出文件的路径
  */
 export async function writeOutput(report, items, config) {
   // 确保输出目录存在（recursive: true → 父目录也会创建）
   await fs.mkdir(config.output.dir, { recursive: true })
 
-  const date = todayStr()
   const ts = datetimeStr()
 
   // 文件名格式：2026-05-05-143052-美国伊朗局势速报
   const baseName = `${ts}-${config.title}`
   const mdPath = path.join(config.output.dir, `${baseName}.md`)
-  const jsonPath = path.join(config.output.dir, `${baseName}.json`)
 
-  // 生成 Markdown 内容
+  // 生成并写入 Markdown 文件
   const markdown = buildMarkdown(report, items, config)
-
-  // 构建 JSON 数据：元信息 + LLM 报告 + 原始来源
-  const jsonData = {
-    topic: config.id,
-    title: config.title,
-    date,
-    generatedAt: new Date().toISOString(),
-    ...report,        // 展开 LLM 返回的所有字段
-    sources: items,   // 附上原始新闻条目供后续追问
-  }
-
-  // 同时写入两个文件
   await fs.writeFile(mdPath, markdown, 'utf-8')
-  await fs.writeFile(jsonPath, JSON.stringify(jsonData, null, 2), 'utf-8')
 
-  return { mdPath, jsonPath }
+  return mdPath
 }

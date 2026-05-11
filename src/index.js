@@ -18,7 +18,7 @@ async function main() {
 
   if (!topicId) {
     console.error('用法: npm run brief <主题ID> [--no-dedup]')
-    console.error('示例: npm run brief us-iran')
+    console.error('示例: npm run brief geopolitics')
     process.exit(1)
   }
 
@@ -50,9 +50,8 @@ async function main() {
 
   // ── 步骤 4：输出文件 ──
   console.log('[4/4] 写入输出文件...')
-  const { mdPath, jsonPath } = await writeOutput(report, items, config)
+  const mdPath = await writeOutput(report, items, config)
   console.log(`      ✓ ${mdPath}`)
-  console.log(`      ✓ ${jsonPath}`)
 
   auditor.event('run_completed', {
     totalSources: config.sources.length,

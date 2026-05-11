@@ -4,7 +4,17 @@
       "Bash(echo \"exit: $?\")",
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(git checkout *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "Bash(git merge *)",
+      "Bash(node -e \"const { ChatOpenAI } = require\\('@langchain/openai'\\); const m = new ChatOpenAI\\({apiKey:'x'}\\); console.log\\(Object.keys\\(m\\)\\)\")",
+      "Bash(node *)",
+      "Bash(npx playwright *)",
+      "Bash(python3 *)",
+      "Bash(curl *)"
     ]
   }
 }

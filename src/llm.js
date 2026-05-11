@@ -6,7 +6,6 @@
 
 import { ChatOpenAI } from '@langchain/openai'
 import { SystemMessage, HumanMessage } from '@langchain/core/messages'
-import { JsonOutputParser } from '@langchain/core/output_parsers'
 
 function createModel() {
   return new ChatOpenAI({
@@ -20,6 +19,47 @@ function createModel() {
 }
 
 /**
+ * 修复 LLM 返回的非标准 JSON：
+ *   1. 剥离 markdown 代码块（```json ... ```）
+ *   2. 尝试定位第一个 [ 或 { 开始解析
+ *   3. 修复 JS 风格的 unquoted key（如 {title: "..."} → {"title": "..."})
+ */
+function repairAndParseJson(raw) {
+  let text = raw.trim()
+
+  // 剥离 markdown 代码块
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fenceMatch) {
+    text = fenceMatch[1].trim()
+  }
+
+  // 尝试从第一个 JSON 边界开始解析
+  const jsonStart = Math.min(
+    text.indexOf('[') === -1 ? Infinity : text.indexOf('['),
+    text.indexOf('{') === -1 ? Infinity : text.indexOf('{')
+  )
+  if (jsonStart !== Infinity && jsonStart > 0) {
+    text = text.slice(jsonStart)
+    // 去掉尾部多余文本（试试找到对应的闭合）
+    const firstChar = text[0]
+    const closer = firstChar === '[' ? ']' : '}'
+    const lastClose = text.lastIndexOf(closer)
+    if (lastClose !== -1) {
+      text = text.slice(0, lastClose + 1)
+    }
+  }
+
+  // 尝试直接解析
+  try {
+    return JSON.parse(text)
+  } catch {
+    // 尝试修复 JS 风格的 unquoted key: {title: "..."} → {"title": "..."}
+    const fixed = text.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":')
+    return JSON.parse(fixed)
+  }
+}
+
+/**
  * 调用 LLM 并返回 JSON 解析结果 + token 元信息
  *
  * @param {string} systemPrompt
@@ -28,7 +68,6 @@ function createModel() {
  */
 export async function callLLMForJsonWithMeta(systemPrompt, userPrompt) {
   const model = createModel()
-  const parser = new JsonOutputParser()
   const modelName = process.env.LLM_MODEL || 'gpt-4o-mini'
 
   const messages = [
@@ -46,7 +85,7 @@ export async function callLLMForJsonWithMeta(systemPrompt, userPrompt) {
     outputTokens = aiMsg.usage_metadata.output_tokens || 0
   }
 
-  const result = await parser.parse(content)
+  const result = repairAndParseJson(content)
 
   return {
     result,

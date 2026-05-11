@@ -72,11 +72,21 @@ export async function fetchFromWeb(sourceConfig, options = {}) {
         const fullHtml = await pageCtx.content()
         log.success('页面加载完成', { ms: loadMs, bytes: fullHtml.length })
 
+        // HTML < 5KB 说明可能是反爬页面、paywall 或重定向，直接跳过
+        if (fullHtml.length < 5000) {
+          log.warn('页面内容过少，疑似反爬或空页面', { bytes: fullHtml.length })
+          await pageCtx.close().catch(() => {})
+          continue
+        }
+
         if (auditor) {
           auditor.event('list_page_loaded', { url, page, htmlBytes: fullHtml.length, durationMs: loadMs })
         }
 
-        const { cleaned, originalLength, cleanedLength, truncated } = cleanHtml(fullHtml, { mode: 'list' })
+        const { cleaned, originalLength, cleanedLength, truncated } = cleanHtml(fullHtml, {
+          mode: 'list',
+          maxChars: 1000000,
+        })
         if (truncated) {
           log.warn('HTML 超过上限已截断', { maxChars: 1000000 })
         }
@@ -84,6 +94,7 @@ export async function fetchFromWeb(sourceConfig, options = {}) {
         const listItems = await extractList(cleaned, url, {
           hint,
           extractDepth,
+          maxItems: maxArticles,
           retries: options.retries,
           auditor,
         })

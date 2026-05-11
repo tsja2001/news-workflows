@@ -1,0 +1,135 @@
+id: global-news
+title: 全球新闻汇总
+
+sources:
+  # ═══════════════════════════════════════════════════════════════
+  # RSS — 美国主流媒体
+  # ═══════════════════════════════════════════════════════════════
+
+  - name: NYT Top Stories
+    type: rss
+    url: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"
+
+  - name: NYT World
+    type: rss
+    url: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml"
+
+  - name: NPR News
+    type: rss
+    url: "https://feeds.npr.org/1001/rss.xml"
+
+  - name: LA Times World
+    type: rss
+    url: "https://www.latimes.com/world/rss2.0.xml"
+
+  - name: Washington Times
+    type: rss
+    url: "https://www.washingtontimes.com/rss/headlines/news/"
+
+  - name: The Hill
+    type: rss
+    url: "https://thehill.com/rss"
+
+  # ═══════════════════════════════════════════════════════════════
+  # RSS — 英国 / 欧洲主流媒体
+  # ═══════════════════════════════════════════════════════════════
+
+  - name: The Guardian World
+    type: rss
+    url: "https://www.theguardian.com/world/rss"
+
+  - name: France24
+    type: rss
+    url: "https://www.france24.com/en/rss"
+
+  - name: DW
+    type: rss
+    url: "https://rss.dw.com/rdf/rss-en-all"
+
+  - name: Euronews
+    type: rss
+    url: "https://www.euronews.com/rss"
+
+  # ═══════════════════════════════════════════════════════════════
+  # RSS — 中东媒体
+  # ═══════════════════════════════════════════════════════════════
+
+  - name: Al Jazeera
+    type: rss
+    url: "https://www.aljazeera.com/xml/rss/all.xml"
+    fetchFullContent: true
+    fetchContentConcurrency: 3
+
+  - name: Jerusalem Post
+    type: rss
+    url: "https://www.jpost.com/rss/rssfeedsfrontpage.aspx"
+
+  # ═══════════════════════════════════════════════════════════════
+  # RSS — 亚太媒体
+  # ═══════════════════════════════════════════════════════════════
+
+  - name: China Daily World
+    type: rss
+    url: "https://www.chinadaily.com.cn/rss/world_rss.xml"
+
+  - name: Strait Times Asia
+    type: rss
+    url: "https://www.straitstimes.com/news/asia/rss.xml"
+
+  - name: Japan Times
+    type: rss
+    url: "https://www.japantimes.co.jp/feed/"
+
+  - name: The Diplomat
+    type: rss
+    url: "https://thediplomat.com/feed/"
+
+  # ═══════════════════════════════════════════════════════════════
+  # RSS — 其他地区
+  # ═══════════════════════════════════════════════════════════════
+
+  - name: ABC News Australia
+    type: rss
+    url: "https://www.abc.net.au/news/feed/51120/rss.xml"
+
+  - name: Global News Canada
+    type: rss
+    url: "https://globalnews.ca/feed/"
+
+  - name: Moscow Times
+    type: rss
+    url: "https://www.themoscowtimes.com/rss/news"
+
+  # ═══════════════════════════════════════════════════════════════
+  # Web 通用抓取
+  # ═══════════════════════════════════════════════════════════════
+
+  - name: CNN World
+    type: web
+    url: "https://www.cnn.com/world"
+    hint: "提取 world 板块的新闻标题和链接，涵盖各大洲分栏。忽略广告和 Opinion 区域。"
+    maxArticles: 10
+    skipKeywordFilter: true
+
+  - name: Al Jazeera (Web)
+    type: web
+    url: "https://www.aljazeera.com/"
+    hint: "首页头条区域，提取主要新闻卡片和标题链接。关注 News 和 Features 板块。"
+    maxArticles: 8
+
+  - name: The Guardian (Web)
+    type: web
+    url: "https://www.theguardian.com/international"
+    hint: "国际版首页，提取头条和要闻区域的新闻链接。忽略 Opinion 和 Sport 板块。"
+    maxArticles: 8
+
+filter:
+  # 无关键词过滤，汇集各类新闻
+  lookbackHours: 24
+  maxItems: 80
+
+dedup:
+  enabled: true
+
+output:
+  dir: "/Users/yangzhuoran/program/ObsidianWithAI/NewsBriefs/全球新闻汇总"
