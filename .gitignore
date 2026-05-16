@@ -7,3 +7,6 @@ data/
 
 # Phase 2.5 sessions
 state/sessions/
+
+# Claude Code internal
+.claude/
