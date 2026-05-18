@@ -1,0 +1,466 @@
+id: global-geopolitical-conflicts-rss
+title: 全球地缘冲突速报（RSS版）
+
+# ============================================================
+# RSS-first 配置：放弃 Playwright 网页爬取，改用 RSS 订阅
+#
+# 优势：
+#   - 速度：全部源并行抓取，30~60 秒完成（原 web 方案需 10~50 分钟）
+#   - 稳定：RSS 是媒体主动提供的接口，无反爬问题
+#   - 成本：LLM token 消耗降至 1/20（只用于最终汇总，不用于提取）
+#
+# 使用说明：
+#   - ✅ 已验证：经过实际测试，可直接使用
+#   - ⚠️ 待验证：基于文档整理，首次使用前建议手动测试
+#   - fetchFullContent: true：回抓文章全文（用 Readability 解析，非 LLM）
+# ============================================================
+
+sources:
+
+  # ============================================================
+  # 一、全球通讯社 / 综合国际新闻
+  # ============================================================
+
+  - name: Al Jazeera 全球
+    type: rss
+    url: "https://www.aljazeera.com/xml/rss/all.xml"
+    # ✅ 已验证：每次运行 25篇，8秒，极稳定
+
+  - name: BBC 世界新闻
+    type: rss
+    url: "http://feeds.bbci.co.uk/news/world/rss.xml"
+    # ✅ 官方维护，极稳定，全球最佳综合来源之一
+
+  - name: The Guardian 世界
+    type: rss
+    url: "https://www.theguardian.com/world/rss"
+    # ✅ 官方，含全文（极少数主流媒体之一），英国视角
+
+  - name: DW 英文
+    type: rss
+    url: "https://rss.dw.com/rdf/rss-en-all"
+    # ✅ 官方，德国之声，欧洲与全球综合
+
+  - name: France24 国际
+    type: rss
+    url: "https://www.france24.com/en/international/rss"
+    # ⚠️ 待验证，法国国际广播，非洲/中东覆盖强
+
+  - name: RFI 英文
+    type: rss
+    url: "https://www.rfi.fr/en/rss"
+    # ⚠️ 待验证，法国国际广播，非洲覆盖最强
+
+  - name: NPR 世界新闻
+    type: rss
+    url: "https://feeds.npr.org/1004/rss.xml"
+    # ✅ 官方，美国公共广播
+
+  - name: 联合国新闻
+    type: rss
+    url: "https://news.un.org/feed/subscribe/en/news/all/rss.xml"
+    # ⚠️ 待验证，联合国官方，覆盖安理会、制裁、维和
+    skipKeywordFilter: true  # 联合国内容本身就是冲突相关，跳过关键词过滤
+
+  - name: Reuters via Google News
+    type: rss
+    url: "https://news.google.com/rss/search?q=when:2d+site:reuters.com+world+conflict&hl=en-US&gl=US&ceid=US:en"
+    # Reuters 官方 RSS 已停止，用 Google News 替代
+    # 限定 reuters.com 域名确保来源质量
+
+  - name: AP via Google News
+    type: rss
+    url: "https://news.google.com/rss/search?q=when:2d+site:apnews.com&hl=en-US&gl=US&ceid=US:en"
+    # AP 官方 RSS 已停止，用 Google News 替代
+
+  # ============================================================
+  # 二、俄乌 / 欧洲 / 北约
+  # ============================================================
+
+  - name: Kyiv Independent
+    type: rss
+    url: "https://kyivindependent.com/feed/"
+    # ✅ 已验证，乌克兰视角头部独立媒体，含全文
+    fetchFullContent: false  # 自带全文，无需回抓
+
+  - name: Meduza 英文
+    type: rss
+    url: "https://meduza.io/en/rss/all"
+    # ⚠️ 待验证，俄罗斯流亡独立媒体（拉脱维亚），提供俄罗斯内部视角
+    # 含全文
+
+  - name: The Moscow Times
+    type: rss
+    url: "https://www.themoscowtimes.com/rss/news"
+    # ⚠️ 待验证，流亡俄罗斯独立英文媒体
+
+  - name: Radio Free Europe 乌克兰
+    type: rss
+    url: "https://www.rferl.org/api/epipeqiqnye"
+    # ⚠️ 待验证，RFE/RL 乌克兰专题
+    skipKeywordFilter: true
+
+  - name: Bellingcat
+    type: rss
+    url: "https://www.bellingcat.com/feed/"
+    # ✅ 开源情报调查，东欧/冲突核查，质量极高
+    fetchFullContent: true
+
+  - name: 俄乌冲突 Google News 聚合
+    type: rss
+    url: "https://news.google.com/rss/search?q=Ukraine+Russia+war+ceasefire+when:2d&hl=en-US&gl=US&ceid=US:en"
+    # 聚合多来源，覆盖面广但有重复，关键词过滤会去除不相关内容
+    skipKeywordFilter: true
+
+  # ============================================================
+  # 三、中东 / 北非
+  # ============================================================
+
+  - name: Times of Israel
+    type: rss
+    url: "https://www.timesofisrael.com/feed/"
+    # ✅ 已验证，以色列最主要英文媒体
+
+  - name: Middle East Eye
+    type: rss
+    url: "https://www.middleeasteye.net/rss"
+    # ⚠️ 待验证，独立中东媒体，批判性视角，补充西方主流视角盲区
+
+  - name: Arab News
+    type: rss
+    url: "https://www.arabnews.com/rss.xml"
+    # ⚠️ 待验证，沙特英文媒体，海湾/阿拉伯国家视角
+
+  - name: 中东冲突 Google News 聚合
+    type: rss
+    url: "https://news.google.com/rss/search?q=Gaza+Israel+Hamas+Palestine+ceasefire+when:2d&hl=en-US&gl=US&ceid=US:en"
+    skipKeywordFilter: true
+
+  - name: 伊朗/霍尔木兹 Google News 聚合
+    type: rss
+    url: "https://news.google.com/rss/search?q=Iran+Hormuz+sanctions+nuclear+when:2d&hl=en-US&gl=US&ceid=US:en"
+    skipKeywordFilter: true
+
+  # ============================================================
+  # 四、亚太 / 印太安全
+  # ============================================================
+
+  - name: The Diplomat
+    type: rss
+    url: "https://thediplomat.com/feed/"
+    # ✅ 亚太地缘政治专业媒体，质量极高
+    fetchFullContent: true
+
+  - name: The Hindu 国际
+    type: rss
+    url: "https://www.thehindu.com/news/international/feeder/default.rss"
+    # ⚠️ 待验证，印度主要英文媒体，南亚/印巴视角
+
+  - name: NK News 朝鲜
+    type: rss
+    url: "https://www.nknews.org/feed/"
+    # ⚠️ 待验证，朝鲜半岛专业媒体
+    skipKeywordFilter: true
+
+  - name: Irrawaddy 缅甸
+    type: rss
+    url: "https://www.irrawaddy.com/feed"
+    # ⚠️ 待验证，缅甸独立媒体（泰国注册）
+    skipKeywordFilter: true
+
+  - name: 台海/南海 Google News 聚合
+    type: rss
+    url: "https://news.google.com/rss/search?q=Taiwan+Strait+South+China+Sea+Philippines+when:2d&hl=en-US&gl=US&ceid=US:en"
+    skipKeywordFilter: true
+
+  - name: 印巴冲突 Google News 聚合
+    type: rss
+    url: "https://news.google.com/rss/search?q=India+Pakistan+Kashmir+conflict+when:2d&hl=en-US&gl=US&ceid=US:en"
+    skipKeywordFilter: true
+
+  # ============================================================
+  # 五、非洲冲突
+  # ============================================================
+
+  - name: Sudan Tribune
+    type: rss
+    url: "https://sudantribune.com/feed/"
+    # ✅ 已验证，苏丹/南苏丹专门报道，含全文
+    skipKeywordFilter: true
+
+  - name: 非洲冲突 Google News 聚合
+    type: rss
+    url: "https://news.google.com/rss/search?q=Sudan+Sahel+Mali+Congo+DRC+conflict+when:2d&hl=en-US&gl=US&ceid=US:en"
+    skipKeywordFilter: true
+
+  # ============================================================
+  # 六、美洲 / 拉美安全
+  # ============================================================
+
+  - name: InSightCrime
+    type: rss
+    url: "https://insightcrime.org/news/feed/"
+    # ✅ 已验证，拉美有组织犯罪/安全专业媒体，含全文
+    skipKeywordFilter: true
+
+  # ============================================================
+  # 七、智库 / 深度分析
+  # ============================================================
+
+  - name: War on the Rocks
+    type: rss
+    url: "https://warontherocks.com/feed/"
+    # ✅ 美国国家安全政策专业媒体，全文，质量极高
+    skipKeywordFilter: true
+    fetchFullContent: false  # 自带全文
+
+  - name: Foreign Policy
+    type: rss
+    url: "https://foreignpolicy.com/feed/"
+    # ⚠️ 待验证，地缘政治深度分析
+    fetchFullContent: true
+
+  - name: International Crisis Group
+    type: rss
+    url: "https://www.crisisgroup.org/rss.xml"
+    # ⚠️ 待验证，全球冲突分析权威机构
+    skipKeywordFilter: true
+
+  # ============================================================
+  # 八、中文信息源
+  # ============================================================
+
+  - name: BBC 中文国际
+    type: rss
+    url: "http://feeds.bbci.co.uk/zhongwen/simp/world/rss.xml"
+    # ✅ BBC 官方中文版，稳定
+
+  - name: 新华社国际 via RSSHub
+    type: rss
+    url: "https://rsshub.app/xinhua/world"
+    # 🔧 RSSHub 维护，需要可访问的 RSSHub 实例
+    # 如果 rsshub.app 不可用，改为自建实例地址
+
+  - name: 中文地缘冲突 Google News
+    type: rss
+    url: "https://news.google.com/rss/search?q=冲突+战争+制裁+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"
+    skipKeywordFilter: true
+
+# ============================================================
+# 过滤配置
+# ============================================================
+
+filter:
+  keywords:
+    # 通用冲突词：英文
+    - conflict
+    - war
+    - warfare
+    - crisis
+    - clashes
+    - fighting
+    - attack
+    - attacks
+    - strike
+    - strikes
+    - airstrike
+    - missile
+    - missiles
+    - drone
+    - drones
+    - shelling
+    - artillery
+    - troops
+    - military
+    - army
+    - navy
+    - air force
+    - defense
+    - defence
+    - border
+    - ceasefire
+    - truce
+    - escalation
+    - sanctions
+    - nuclear
+    - hostage
+    - hostages
+    - insurgency
+    - militants
+    - militia
+    - rebels
+    - terrorism
+    - blockade
+    - invasion
+    - offensive
+    - counteroffensive
+    - peace talks
+    - peace deal
+    - security council
+    - humanitarian crisis
+    - displaced
+    - refugees
+    - famine
+
+    # 通用冲突词：中文
+    - 冲突
+    - 战争
+    - 战事
+    - 危机
+    - 交火
+    - 袭击
+    - 空袭
+    - 打击
+    - 导弹
+    - 无人机
+    - 炮击
+    - 军事
+    - 军队
+    - 部队
+    - 防务
+    - 边境
+    - 停火
+    - 休战
+    - 升级
+    - 制裁
+    - 核问题
+    - 人质
+    - 民兵
+    - 叛军
+    - 恐袭
+    - 恐怖主义
+    - 封锁
+    - 入侵
+    - 攻势
+    - 和谈
+    - 安理会
+    - 人道危机
+    - 难民
+    - 流离失所
+    - 饥荒
+
+    # 俄乌 / 欧洲 / 北约
+    - Ukraine
+    - Ukrainian
+    - Russia-Ukraine
+    - Kyiv
+    - Donbas
+    - Crimea
+    - Black Sea
+    - NATO
+    - Article 5
+    - Baltic
+    - Belarus
+    - Moldova
+    - Armenia
+    - Azerbaijan
+    - Nagorno-Karabakh
+    - 俄乌
+    - 乌克兰
+    - 俄罗斯
+    - 北约
+    - 克里米亚
+    - 亚美尼亚
+    - 阿塞拜疆
+
+    # 中东 / 北非
+    - Israel
+    - Gaza
+    - Hamas
+    - Palestine
+    - Palestinian
+    - West Bank
+    - Iran
+    - Iranian
+    - Tehran
+    - Hezbollah
+    - Lebanon
+    - Syria
+    - Yemen
+    - Houthi
+    - Houthis
+    - Red Sea
+    - Strait of Hormuz
+    - Iraq
+    - Kurd
+    - Kurdish
+    - 巴以
+    - 以色列
+    - 加沙
+    - 哈马斯
+    - 伊朗
+    - 真主党
+    - 黎巴嫩
+    - 叙利亚
+    - 也门
+    - 胡塞
+    - 红海
+    - 伊拉克
+
+    # 亚太
+    - Taiwan
+    - Taiwan Strait
+    - South China Sea
+    - East China Sea
+    - Philippines
+    - North Korea
+    - Korean Peninsula
+    - Kashmir
+    - Afghanistan
+    - Taliban
+    - Myanmar
+    - 台海
+    - 台湾
+    - 南海
+    - 东海
+    - 朝鲜
+    - 克什米尔
+    - 阿富汗
+    - 缅甸
+
+    # 非洲
+    - Sudan
+    - Darfur
+    - RSF
+    - South Sudan
+    - Sahel
+    - Mali
+    - Niger
+    - Burkina Faso
+    - DRC
+    - Congo
+    - Somalia
+    - Ethiopia
+    - Tigray
+    - Libya
+    - 苏丹
+    - 达尔富尔
+    - 萨赫勒
+    - 索马里
+
+    # 美洲
+    - Haiti
+    - Venezuela
+    - Colombia
+    - cartel
+    - gang violence
+    - 海地
+    - 委内瑞拉
+
+  lookbackHours: 48
+  maxItems: 60
+
+  runtime:
+    concurrency:
+      rss: 10        # RSS 抓取轻量，高并发
+      web: 2
+      default: 5
+    sourceTimeoutMs: 30000   # RSS 超时 30 秒，远比 web 快
+    retries: 2
+
+dedup:
+  enabled: true
+  retentionDays: 7
+
+output:
+  dir: "/Users/yangzhuoran/program/ObsidianWithAI/NewsBriefs/全球地缘冲突"

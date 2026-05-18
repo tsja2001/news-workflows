@@ -10,3 +10,7 @@ state/sessions/
 
 # Claude Code internal
 .claude/
+
+# Source probe
+test/probe/state.json
+test/probe/results/

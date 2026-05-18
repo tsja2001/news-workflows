@@ -5,7 +5,8 @@
   "scripts": {
     "brief": "node src/index.js",
     "audit": "node src/cli/audit.js",
-    "test": "node --test src/**/*.test.js"
+    "test": "node --test src/**/*.test.js",
+    "probe": "node test/probe/probe.js"
   },
   "dependencies": {
     "@langchain/core": "^0.3.0",
