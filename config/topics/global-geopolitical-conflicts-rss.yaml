@@ -529,3 +529,33 @@ editorial:
 
   # 是否把 context 段合并进 overview（删除冗余的"整体背景"独立段）
   mergeContextIntoOverview: true
+
+# ============================================================
+# 多模型融合配置 — DeepSeek 预处理 + Claude 最终成稿
+# ============================================================
+# mode: single → 单模型直接成稿（向后兼容）
+# mode: hybrid → 研究助理(DeepSeek) + 主编(Claude) 两段式
+#
+# 为什么用 hybrid：
+#   - 30+ 源、最多 60 条素材，直接给 Claude 成本高
+#   - DeepSeek 便宜适合大批量压缩聚类
+#   - Claude 做最终选题判断和 editorTake，质量更高
+llmPipeline:
+  mode: hybrid
+
+  # 阶段 1：DeepSeek 预处理（研究助理）
+  preprocess:
+    maxInputItems: 80         # 最多读多少条
+    itemExcerptChars: 1000    # 每条摘录长度（字符）
+    maxClusters: 12           # 最多产出几组候选主线
+    maxFactsPerCluster: 5     # 每组最多几条事实
+
+  # 阶段 2：Claude 最终成稿（主编）
+  writer:
+    maxSourceItems: 35        # Claude 最多读多少条精简素材
+    requireOriginalEvidence: true
+    onFailure: fail           # fail=直接报错, fallbackToPreprocessModel=回退单模型
+
+  # 阶段 3：校验（二期，暂不启用）
+  validation:
+    enabled: false
