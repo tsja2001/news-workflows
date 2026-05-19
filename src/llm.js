@@ -56,7 +56,8 @@ function createModelClient(role = 'default') {
   const kwargs = {}
 
   // DeepSeek 思考模式默认关闭，避免长时间"思考"导致假死
-  if (config.disableThinking) {
+  // 仅对 DeepSeek 注入此参数，其他 provider 不识别会 403
+  if (config.disableThinking && config.baseURL && config.baseURL.includes('deepseek')) {
     kwargs.thinking = { type: 'disabled' }
   }
 
