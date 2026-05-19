@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "brief": "node src/index.js",
+    "brief:test-hybrid": "ENV_FILE=.env.test node src/index.js test-hybrid --no-dedup",
     "audit": "node src/cli/audit.js",
     "test": "node --test src/**/*.test.js",
     "probe": "node test/probe/probe.js"

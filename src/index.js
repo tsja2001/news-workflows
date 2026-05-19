@@ -4,13 +4,15 @@
  * ============================================================
  */
 
-import 'dotenv/config'
+import { loadEnv } from './env.js'
 import { loadTopic } from './config.js'
 import { fetchAndFilter } from './fetch.js'
 import { summarize } from './summarize.js'
 import { writeOutput } from './output.js'
 import { shutdownPlaywright } from './fetch/playwright.js'
 import { createAuditor } from './utils/auditor.js'
+
+loadEnv()
 
 async function main() {
   const topicId = process.argv[2]

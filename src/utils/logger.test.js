@@ -136,8 +136,7 @@ describe('createLogger', () => {
   it('suppresses verbose at info level', () => {
     process.env.LOG_LEVEL = 'info'
     const log = createLogger('test/unit')
-    log.step('should not appear')
-    log.success('should not appear')
+    log.timing('should not appear', 123)
     assert.strictEqual(output, '')
   })
 

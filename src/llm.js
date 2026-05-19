@@ -16,20 +16,23 @@ import { SystemMessage, HumanMessage } from '@langchain/core/messages'
 /**
  * 按 role 读取环境变量配置，缺失时回退到 LLM_* 默认值
  * @param {string} role - default | preprocess | writer | validator
- * @returns {{ apiKey: string, baseURL: string, model: string, temperature: number }}
+ * @returns {{ apiKey: string, baseURL: string, model: string, temperature: number, maxTokens: number, disableThinking: boolean, omitOpenAICompatibleSamplingParams: boolean }}
  */
-function getRoleConfig(role) {
+export function getRoleConfig(role) {
   const prefix = role === 'default' ? 'LLM' : `LLM_${role.toUpperCase()}`
 
   const apiKey = process.env[`${prefix}_API_KEY`] || process.env.LLM_API_KEY
   const baseURL = process.env[`${prefix}_BASE_URL`] || process.env.LLM_BASE_URL
   const model = process.env[`${prefix}_MODEL`] || process.env.LLM_MODEL || 'gpt-4o-mini'
+  const isBaiClaude = (baseURL || '').includes('api.b.ai') && model.toLowerCase().includes('claude')
 
   const roleTemp = process.env[`${prefix}_TEMPERATURE`]
   const defaultTemp = process.env.LLM_TEMPERATURE
-  const temperature = roleTemp !== undefined
-    ? Number(roleTemp)
-    : (defaultTemp !== undefined ? Number(defaultTemp) : undefined)
+  const temperature = isBaiClaude
+    ? undefined
+    : (roleTemp !== undefined
+        ? Number(roleTemp)
+        : (defaultTemp !== undefined ? Number(defaultTemp) : undefined))
 
   // maxTokens：预处理需要较大输出（聚类 JSON），默认 16384；其他 stage 不设限
   const roleMaxTokens = process.env[`${prefix}_MAX_TOKENS`]
@@ -41,8 +44,16 @@ function getRoleConfig(role) {
   // 思考模式：DeepSeek 默认开启，但新闻简报场景不需要，默认关闭
   // 设置 LLM_DISABLE_THINKING=false 可重新启用
   const disableThinking = process.env.LLM_DISABLE_THINKING !== 'false'
+  const omitOpenAICompatibleSamplingParams = isBaiClaude
 
-  return { apiKey, baseURL, model, temperature, maxTokens, disableThinking }
+  return { apiKey, baseURL, model, temperature, maxTokens, disableThinking, omitOpenAICompatibleSamplingParams }
+}
+
+function omitDefaultOpenAIParams(model) {
+  model.temperature = undefined
+  model.topP = undefined
+  model.frequencyPenalty = undefined
+  model.presencePenalty = undefined
 }
 
 /**
@@ -50,7 +61,7 @@ function getRoleConfig(role) {
  * @param {string} role
  * @returns {ChatOpenAI}
  */
-function createModelClient(role = 'default') {
+export function createModelClient(role = 'default') {
   const config = getRoleConfig(role)
 
   const kwargs = {}
@@ -85,9 +96,12 @@ function createModelClient(role = 'default') {
 
   const model = new ChatOpenAI(modelOptions)
 
-  // ChatOpenAI 默认 temperature=1, topP=1，构造后??覆盖不掉
-  // Claude 等模型不接受这些参数，未配置时需要手动清掉
-  if (config.temperature === undefined) {
+  // ChatOpenAI 会默认发送 temperature=1、top_p=1、frequency_penalty=0、presence_penalty=0。
+  // b.ai 的 Claude 兼容接口对部分 Claude 模型会返回 "`temperature`/`top_p` is deprecated for this model"，
+  // 因此该 provider/model 组合必须显式清掉这些默认 OpenAI 采样参数。
+  if (config.omitOpenAICompatibleSamplingParams) {
+    omitDefaultOpenAIParams(model)
+  } else if (config.temperature === undefined) {
     model.temperature = undefined
     model.topP = undefined
   }

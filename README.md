@@ -16,6 +16,22 @@ cp .env.example .env
 npm run brief global-geopolitical-conflicts-rss
 ```
 
+### 测试环境
+
+单元测试不调用真实 LLM API：
+
+```bash
+npm test
+```
+
+如果要验证真实模型链路，请使用测试环境文件和测试主题。测试环境里的 preprocess/writer 都应配置为 DeepSeek，避免误调用生产 Claude/b.ai：
+
+```bash
+cp .env.test.example .env.test
+# 编辑 .env.test，填入 DeepSeek API key 和 NEWS_BRIEFS_ROOT
+npm run brief:test-hybrid
+```
+
 ### 环境变量
 
 | 变量 | 说明 | 必填 |
@@ -32,6 +48,7 @@ npm run brief global-geopolitical-conflicts-rss
 
 ```bash
 npm run brief <topic-id>              # 生成简报
+npm run brief:test-hybrid             # 使用 .env.test 跑 test-hybrid，真实 API 但全 DeepSeek
 npm run probe <topic-id>              # 探测源可用性
 npm run audit -- list [topic]         # 查看运行记录
 npm test                              # 运行测试

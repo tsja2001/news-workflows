@@ -82,6 +82,16 @@ editorial:
 - **audit CLI** (`src/cli/audit.js`)：6 个子命令，查询 `logs/audit/` 下的 JSONL 审计日志，支持运行对比、jq 查询、过期清理
 - **auditor** (`src/utils/auditor.js`)：每次运行自动生成 JSONL 审计日志 + summary.json，按源追踪、含成本估算
 
+## 日志与可观测性
+
+运行日志要同时服务两个目标：**当场知道程序跑到哪一步**，以及**事后能定位问题**。
+
+- **控制台进度日志**：运行 `npm run brief <topic-id>` 时，应持续输出关键阶段进度，至少覆盖配置加载、源抓取开始/完成、过滤统计、LLM 各阶段开始/完成、输出文件写入、失败回退等节点。日志要简洁，适合人实时盯运行状态。
+- **文件日志**：每次运行都应写入专门的日志文件，放在 `logs/` 下按日期和 runId 组织。文件日志必须包含时间戳、topic、runId、阶段、源名称/类型、模型角色、耗时、token、错误堆栈或错误消息、关键输入输出规模等排障信息。
+- **审计日志与普通日志分工**：`logs/audit/` 继续保留结构化 JSONL 审计事件，便于查询和对比；如新增普通运行日志，应记录更完整的人类可读上下文，方便直接打开文件排查。
+- **错误日志要求**：捕获异常时不要只打印一句失败，要记录错误类型、message、stack（如有）、当前阶段、相关配置摘要（不能泄露密钥）、以及是否触发 fallback。
+- **长期目标**：日志格式保持稳定，便于未来接入 `npm run audit`、按 runId 聚合查看、或自动生成故障诊断摘要。
+
 ## 关键文件速查
 
 | 文件 | 角色 |
@@ -108,6 +118,29 @@ editorial:
 - 健壮性优先：单源失败不中断、字段缺失不崩溃、原子写入防文件损坏
 - 不要重写现有能跑通的代码，只做必要重构
 - 遇到不确定的设计决策停下来问人类
+
+## 测试工程规范
+
+测试是功能开发的一部分。以后新增功能、修 bug、调整模型协作流程或改配置解析时，必须同步新增或更新对应测试，不能只靠手动跑真实任务验证。
+
+- **测试命令**：优先运行 `npm test`。本项目测试使用 Node 内置 `node:test`，需要 Node 20+；如果本机默认 `node` 太旧，可用 `/opt/homebrew/bin/node --test src/**/*.test.js` 验证。
+- **自动执行时机**：修改代码后，AI 应按影响范围主动运行测试。小改动至少跑相关 test 文件；核心流程、配置、LLM、输出、日志相关改动要跑全量测试。不能运行测试时，必须在最终回复说明原因。
+- **新增功能必须有测试**：新增模块、配置项、分支逻辑、fallback、日志字段、输出字段，都要有最小覆盖测试。修 bug 时先补能复现问题的测试，再修实现。
+- **LLM 测试分层**：
+  - 单元测试不打真实 API。涉及 DeepSeek、Claude、b.ai、LangChain 的单元测试应 mock 调用层，验证 prompt/input/schema/role/参数/fallback。
+  - 模型逻辑验证可以打真实 API，但必须使用测试环境：`ENV_FILE=.env.test` + 测试 YAML。测试环境里的 preprocess/writer 全部配置为 DeepSeek，避免测试场景误调用 Claude/b.ai。
+  - 真实生产运行才使用 `.env` 中的 DeepSeek + Claude 混合配置。
+- **抓取测试不打真实网络**：RSS/HTML/web/API adapter 测试应使用 fixture 或 mock adapter。调度器测试不得依赖 `example.com`、真实 Playwright 浏览器或外部网站状态。
+- **YAML 测试使用测试配置**：需要 YAML 场景时，使用 `config/topics/test-hybrid.yaml` 这类测试主题；如果出现新场景，新增专门的测试 YAML。不要把正式主题 YAML 当作测试夹具直接修改或依赖。模型逻辑验证默认运行 `npm run brief:test-hybrid`。
+- **测试/真实环境隔离**：`.env` 是真实运行环境，可配置 DeepSeek + Claude；`.env.test` 是测试 API 环境，只配置 DeepSeek。新增需要真实 API 的测试命令时，必须显式设置 `ENV_FILE=.env.test`。
+- **核心链路测试要求**：
+  - 配置解析：覆盖 env 替换、缺失 env、默认值、非法配置；
+  - fetch/filter：覆盖时间、关键词、排除关键词、去重、截断；
+  - hybrid summarize：覆盖 single/hybrid 路由、DeepSeek 预处理失败、Claude writer 失败、fallback 策略；
+  - preprocess/write-report：覆盖中间 JSON schema、Claude 输入规模控制、是否附带原始素材；
+  - output：覆盖 Markdown frontmatter、关键段落、缺字段兜底；
+  - logs/audit：覆盖新增事件字段、错误信息、summary 聚合。
+- **测试结果要求**：完成任务前必须知道测试状态。理想状态是全绿；如果存在非本次引入的失败，要明确列出失败测试、原因判断和是否与本次改动相关。
 
 ## 文档管理
 

@@ -7,7 +7,7 @@
 
 import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert'
-import { resolveEnvVars } from '../config.js'
+import { resolveEnvVars } from './config.js'
 
 describe('config', () => {
   describe('resolveEnvVars', () => {

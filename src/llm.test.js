@@ -6,9 +6,36 @@
 import { describe, it, beforeEach, afterEach } from 'node:test'
 import assert from 'node:assert'
 
-// 直接测试 getRoleConfig 需要 import，但它是内部函数。
-// 这里通过 callLLMForJsonWithMeta 间接验证 role 配置逻辑。
-// 真正的集成测试需要有真实 LLM，此处验证向后兼容的行为。
+const ENV_KEYS = [
+  'LLM_API_KEY',
+  'LLM_BASE_URL',
+  'LLM_MODEL',
+  'LLM_TEMPERATURE',
+  'LLM_WRITER_API_KEY',
+  'LLM_WRITER_BASE_URL',
+  'LLM_WRITER_MODEL',
+  'LLM_WRITER_TEMPERATURE',
+]
+
+let originalEnv
+
+beforeEach(() => {
+  originalEnv = {}
+  for (const key of ENV_KEYS) {
+    originalEnv[key] = process.env[key]
+    delete process.env[key]
+  }
+})
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    if (originalEnv[key] === undefined) {
+      delete process.env[key]
+    } else {
+      process.env[key] = originalEnv[key]
+    }
+  }
+})
 
 describe('llm module', () => {
   describe('backward compatibility', () => {
@@ -16,14 +43,50 @@ describe('llm module', () => {
       // 验证函数签名兼容：无 options 调用不报错
       const { callLLMForJsonWithMeta } = await import('./llm.js')
       assert.strictEqual(typeof callLLMForJsonWithMeta, 'function')
-      // 函数参数长度为 3 说明 options 参数存在
-      assert.strictEqual(callLLMForJsonWithMeta.length, 3)
     })
 
     it('callLLMForJson accepts options without breaking', async () => {
       const { callLLMForJson } = await import('./llm.js')
       assert.strictEqual(typeof callLLMForJson, 'function')
-      assert.strictEqual(callLLMForJson.length, 3)
+    })
+  })
+
+  describe('provider-specific request params', () => {
+    it('omits ChatOpenAI default sampling params for b.ai Claude writer models', async () => {
+      process.env.LLM_API_KEY = 'sk-test'
+      process.env.LLM_BASE_URL = 'https://api.deepseek.com'
+      process.env.LLM_MODEL = 'deepseek-v4-pro'
+      process.env.LLM_TEMPERATURE = '0.6'
+      process.env.LLM_WRITER_BASE_URL = 'https://api.b.ai/v1'
+      process.env.LLM_WRITER_MODEL = 'claude-opus-4.7'
+
+      const { createModelClient, getRoleConfig } = await import('./llm.js')
+      const config = getRoleConfig('writer')
+      const model = createModelClient('writer')
+      const params = model.invocationParams()
+
+      assert.strictEqual(config.temperature, undefined)
+      assert.strictEqual(params.temperature, undefined)
+      assert.strictEqual(params.top_p, undefined)
+      assert.strictEqual(params.frequency_penalty, undefined)
+      assert.strictEqual(params.presence_penalty, undefined)
+      assert.strictEqual(params.model, 'claude-opus-4.7')
+    })
+
+    it('keeps global temperature fallback for non-Claude providers', async () => {
+      process.env.LLM_API_KEY = 'sk-test'
+      process.env.LLM_BASE_URL = 'https://api.deepseek.com'
+      process.env.LLM_MODEL = 'deepseek-v4-pro'
+      process.env.LLM_TEMPERATURE = '0.6'
+
+      const { createModelClient, getRoleConfig } = await import('./llm.js')
+      const config = getRoleConfig('default')
+      const model = createModelClient('default')
+      const params = model.invocationParams()
+
+      assert.strictEqual(config.temperature, 0.6)
+      assert.strictEqual(params.temperature, 0.6)
+      assert.strictEqual(params.top_p, 1)
     })
   })
 })

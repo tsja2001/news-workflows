@@ -8,25 +8,56 @@ import assert from 'node:assert'
 
 describe('scheduler', () => {
   let origLogLevel
+  let origConsoleLog
+  let origConsoleError
+  let fetchModule
+  let originalAdapters
 
-  beforeEach(() => {
+  beforeEach(async () => {
     origLogLevel = process.env.LOG_LEVEL
+    origConsoleLog = console.log
+    origConsoleError = console.error
     process.env.LOG_LEVEL = 'quiet'
+    console.log = () => {}
+    console.error = () => {}
+
+    fetchModule = await import('./index.js')
+    originalAdapters = { ...fetchModule.ADAPTERS }
   })
 
   afterEach(() => {
     process.env.LOG_LEVEL = origLogLevel
+    console.log = origConsoleLog
+    console.error = origConsoleError
+    for (const key of Object.keys(fetchModule.ADAPTERS)) {
+      delete fetchModule.ADAPTERS[key]
+    }
+    Object.assign(fetchModule.ADAPTERS, originalAdapters)
   })
 
-  it('number concurrency: all types share one pool', async () => {
-    const { fetchAll } = await import('./index.js')
+  function createItem(sourceName, suffix = '1') {
+    return {
+      title: `${sourceName} item ${suffix}`,
+      url: `https://fixture.test/${sourceName}/${suffix}`,
+      source: sourceName,
+      publishedAt: new Date().toISOString(),
+      summary: 'fixture summary',
+    }
+  }
 
-    // 创建 mock adapter，每个源延迟 10ms
+  function registerMockAdapter(type = '_mock_test') {
+    fetchModule.ADAPTERS[type] = async source => [createItem(source.name || type)]
+  }
+
+  it('number concurrency: all types share one pool', async () => {
+    const { fetchAll } = fetchModule
+    registerMockAdapter()
+
     const sources = [
-      { type: 'rss', name: 'rss-1', url: 'https://example.com/rss1' },
-      { type: 'rss', name: 'rss-2', url: 'https://example.com/rss2' },
-      { type: 'web', name: 'web-1', url: 'https://example.com/web1' },
-      { type: 'html', name: 'html-1', name: 'html-1', listUrl: 'https://example.com/html1' },
+      { type: '_mock_test', name: 'source-1', url: 'https://fixture.test/1' },
+      { type: '_mock_test', name: 'source-2', url: 'https://fixture.test/2' },
+      { type: '_mock_test', name: 'source-3', url: 'https://fixture.test/3' },
+      { type: '_mock_test', name: 'source-4', url: 'https://fixture.test/4' },
     ]
 
     const filterConfig = {
@@ -37,17 +68,17 @@ describe('scheduler', () => {
     }
 
     const result = await fetchAll(sources, filterConfig, { noDedup: true })
-    // No real adapter registered for these URLs, so should get 0 items
-    // But it shouldn't crash
-    assert.ok(Array.isArray(result))
+    assert.strictEqual(result.length, 4)
   })
 
   it('object concurrency: each type has own pool', async () => {
-    const { fetchAll } = await import('./index.js')
+    const { fetchAll } = fetchModule
+    registerMockAdapter('_mock_rss')
+    registerMockAdapter('_mock_web')
 
     const sources = [
-      { type: 'rss', name: 'rss-1', url: 'https://example.com/rss1' },
-      { type: 'web', name: 'web-1', url: 'https://example.com/web1' },
+      { type: '_mock_rss', name: 'rss-1', url: 'https://fixture.test/rss1' },
+      { type: '_mock_web', name: 'web-1', url: 'https://fixture.test/web1' },
     ]
 
     const filterConfig = {
@@ -60,11 +91,11 @@ describe('scheduler', () => {
     }
 
     const result = await fetchAll(sources, filterConfig, { noDedup: true })
-    assert.ok(Array.isArray(result))
+    assert.strictEqual(result.length, 2)
   })
 
   it('unknown source type is skipped gracefully', async () => {
-    const { fetchAll } = await import('./index.js')
+    const { fetchAll } = fetchModule
 
     const sources = [
       { type: 'unknown_type', name: 'bad', url: 'https://example.com' },
@@ -82,40 +113,34 @@ describe('scheduler', () => {
   })
 
   it('source timeout kills long-running source', async () => {
-    const { fetchAll, ADAPTERS } = await import('./index.js')
+    const { fetchAll, ADAPTERS } = fetchModule
 
-    // 临时注册一个慢 adapter
-    const origAdapter = ADAPTERS['_slow_test']
     ADAPTERS['_slow_test'] = async () => {
       await new Promise(resolve => setTimeout(resolve, 1000))
       return [{ title: 'slow', url: 'https://example.com/slow', source: 'test', publishedAt: new Date().toISOString(), summary: '' }]
     }
 
-    try {
-      const sources = [
-        { type: '_slow_test', name: 'slow-source', url: 'https://example.com' },
-      ]
+    const sources = [
+      { type: '_slow_test', name: 'slow-source', url: 'https://fixture.test' },
+    ]
 
-      const filterConfig = {
-        lookbackHours: 48,
-        keywords: [],
-        maxItems: 100,
-        runtime: { sourceTimeoutMs: 100, retries: 0 },
-      }
-
-      const result = await fetchAll(sources, filterConfig, { noDedup: true })
-      // Should hit timeout and get empty result
-      assert.strictEqual(result.length, 0)
-    } finally {
-      delete ADAPTERS['_slow_test']
+    const filterConfig = {
+      lookbackHours: 48,
+      keywords: [],
+      maxItems: 100,
+      runtime: { sourceTimeoutMs: 100, retries: 0 },
     }
+
+    const result = await fetchAll(sources, filterConfig, { noDedup: true })
+    assert.strictEqual(result.length, 0)
   })
 
   it('defaults type to rss when not specified', async () => {
-    const { fetchAll } = await import('./index.js')
+    const { fetchAll, ADAPTERS } = fetchModule
+    ADAPTERS.rss = async source => [createItem(source.name || 'rss')]
 
     const sources = [
-      { name: 'no-type', url: 'https://example.com/no-type' },
+      { name: 'no-type', url: 'https://fixture.test/no-type' },
     ]
 
     const filterConfig = {
@@ -124,9 +149,8 @@ describe('scheduler', () => {
       maxItems: 100,
     }
 
-    // The scheduler should treat this as RSS and try to fetch
-    // It will likely fail (invalid RSS) but shouldn't crash
     const result = await fetchAll(sources, filterConfig, { noDedup: true })
-    assert.ok(Array.isArray(result))
+    assert.strictEqual(result.length, 1)
+    assert.strictEqual(result[0].source, 'no-type')
   })
 })

@@ -1,0 +1,89 @@
+# ============================================================
+# 测试用配置 — 仅 5 个 RSS 源，方便快速验证多模型融合流程
+# ============================================================
+
+id: test-hybrid
+title: 多模型融合测试
+
+sources:
+  - name: Al Jazeera 全球
+    type: rss
+    url: "https://www.aljazeera.com/xml/rss/all.xml"
+
+  - name: The Guardian 世界
+    type: rss
+    url: "https://www.theguardian.com/world/rss"
+
+  - name: France24 国际
+    type: rss
+    url: "https://www.france24.com/en/rss"
+
+  - name: Reuters via Google News
+    type: rss
+    url: "https://news.google.com/rss/search?q=when:2d+site:reuters.com+world+conflict&hl=en-US&gl=US&ceid=US:en"
+
+  - name: NPR 世界新闻
+    type: rss
+    url: "https://feeds.npr.org/1004/rss.xml"
+
+filter:
+  keywords:
+    - conflict
+    - war
+    - sanctions
+    - military
+    - Ukraine
+    - Russia
+    - Iran
+    - Israel
+    - Gaza
+    - Taiwan
+    - China
+    - NATO
+    - nuclear
+    - ceasefire
+    - diplomacy
+  lookbackHours: 48
+  maxItems: 25
+
+  runtime:
+    concurrency:
+      rss: 8
+      default: 5
+    sourceTimeoutMs: 30000
+    retries: 2
+
+dedup:
+  enabled: false
+
+output:
+  dir: "${NEWS_BRIEFS_ROOT}/测试"
+
+llmPipeline:
+  mode: hybrid
+
+  preprocess:
+    maxInputItems: 25
+    itemExcerptChars: 1000
+    maxClusters: 8
+    maxFactsPerCluster: 4
+
+  writer:
+    maxSourceItems: 20
+    requireOriginalEvidence: true
+    onFailure: fallbackToPreprocessModel
+
+  validation:
+    enabled: false
+
+editorial:
+  persona: "私人内参编辑"
+  tone: "口语化、有立场、敢下判断"
+  lowAttentionHandling: brief
+  tldr:
+    enabled: true
+    maxItems: 3
+  keyDevelopmentsLimit:
+    high: 4
+    medium: 2
+  mergeContextIntoOverview: true
