@@ -31,7 +31,11 @@ function getRoleConfig(role) {
     ? Number(roleTemp)
     : (defaultTemp !== undefined ? Number(defaultTemp) : 0.6)
 
-  return { apiKey, baseURL, model, temperature }
+  // 思考模式：DeepSeek 默认开启，但新闻简报场景不需要，默认关闭
+  // 设置 LLM_DISABLE_THINKING=false 可重新启用
+  const disableThinking = process.env.LLM_DISABLE_THINKING !== 'false'
+
+  return { apiKey, baseURL, model, temperature, disableThinking }
 }
 
 /**
@@ -42,6 +46,13 @@ function getRoleConfig(role) {
 function createModelClient(role = 'default') {
   const config = getRoleConfig(role)
 
+  const kwargs = {}
+
+  // DeepSeek 思考模式默认关闭，避免长时间"思考"导致假死
+  if (config.disableThinking) {
+    kwargs.thinking = { type: 'disabled' }
+  }
+
   return new ChatOpenAI({
     apiKey: config.apiKey,
     model: config.model,
@@ -49,6 +60,7 @@ function createModelClient(role = 'default') {
     configuration: {
       baseURL: config.baseURL,
     },
+    modelKwargs: Object.keys(kwargs).length > 0 ? kwargs : undefined,
   })
 }
 
