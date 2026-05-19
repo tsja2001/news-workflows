@@ -26,25 +26,25 @@ sources:
     url: "https://www.aljazeera.com/xml/rss/all.xml"
     # ✅ 已验证：每次运行 25篇，8秒，极稳定
 
-  - name: BBC 世界新闻
+  - name: BBC 世界新闻 via Google News
     type: rss
-    url: "http://feeds.bbci.co.uk/news/world/rss.xml"
-    # ✅ 官方维护，极稳定，全球最佳综合来源之一
+    url: "https://news.google.com/rss/search?q=when:2d+site:bbc.com+world&hl=en-US&gl=US&ceid=US:en"
+    # 原 BBC RSS (feeds.bbci.co.uk) 在中国大陆 TLS 阻断，改用 Google News 聚合
 
   - name: The Guardian 世界
     type: rss
     url: "https://www.theguardian.com/world/rss"
     # ✅ 官方，含全文（极少数主流媒体之一），英国视角
 
-  - name: DW 英文
+  - name: DW 英文 via Google News
     type: rss
-    url: "https://rss.dw.com/rdf/rss-en-all"
-    # ✅ 官方，德国之声，欧洲与全球综合
+    url: "https://news.google.com/rss/search?q=when:2d+site:dw.com&hl=en-US&gl=US&ceid=US:en"
+    # 原 DW RSS (rss.dw.com) 在中国大陆 TLS 阻断，改用 Google News 聚合
 
   - name: France24 国际
     type: rss
-    url: "https://www.france24.com/en/international/rss"
-    # ⚠️ 待验证，法国国际广播，非洲/中东覆盖强
+    url: "https://www.france24.com/en/rss"
+    # 法国国际广播，非洲/中东覆盖强。原 /en/international/rss 返回 404，已更新
 
   - name: RFI 英文
     type: rss
@@ -59,7 +59,7 @@ sources:
   - name: 联合国新闻
     type: rss
     url: "https://news.un.org/feed/subscribe/en/news/all/rss.xml"
-    # ⚠️ 待验证，联合国官方，覆盖安理会、制裁、维和
+    # 联合国官方，覆盖安理会、制裁、维和。偶有 gzip 解析失败（rss-parser 原生 http 模块不自动解压）
     skipKeywordFilter: true  # 联合国内容本身就是冲突相关，跳过关键词过滤
 
   - name: Reuters via Google News
@@ -77,27 +77,26 @@ sources:
   # 二、俄乌 / 欧洲 / 北约
   # ============================================================
 
-  - name: Kyiv Independent
+  - name: Kyiv Independent via Google News
     type: rss
-    url: "https://kyivindependent.com/feed/"
-    # ✅ 已验证，乌克兰视角头部独立媒体，含全文
-    fetchFullContent: false  # 自带全文，无需回抓
+    url: "https://news.google.com/rss/search?q=when:2d+site:kyivindependent.com&hl=en-US&gl=US&ceid=US:en"
+    # 原 RSS feed 返回 404（网站迁至 Next.js/Ghost，feed 端点变更），改用 Google News 聚合
 
-  - name: Meduza 英文
+  - name: Meduza 英文 via Google News
     type: rss
-    url: "https://meduza.io/en/rss/all"
-    # ⚠️ 待验证，俄罗斯流亡独立媒体（拉脱维亚），提供俄罗斯内部视角
-    # 含全文
+    url: "https://news.google.com/rss/search?q=when:2d+site:meduza.io&hl=en-US&gl=US&ceid=US:en"
+    # 原 Meduza 英文 RSS (meduza.io/en/rss/all) 返回 404，英文版已下线 RSS，改用 Google News 聚合
+    # 注意：Google News 聚合以英文内容为主，但可能混入俄语原始报道
 
   - name: The Moscow Times
     type: rss
     url: "https://www.themoscowtimes.com/rss/news"
     # ⚠️ 待验证，流亡俄罗斯独立英文媒体
 
-  - name: Radio Free Europe 乌克兰
+  - name: Radio Free Europe 乌克兰 via Google News
     type: rss
-    url: "https://www.rferl.org/api/epipeqiqnye"
-    # ⚠️ 待验证，RFE/RL 乌克兰专题
+    url: "https://news.google.com/rss/search?q=when:2d+site:rferl.org+Ukraine&hl=en-US&gl=US&ceid=US:en"
+    # 原 RFE/RL API 端点 (rferl.org/api/...) 返回 404，API 格式已变更，改用 Google News 聚合
     skipKeywordFilter: true
 
   - name: Bellingcat
@@ -121,10 +120,11 @@ sources:
     url: "https://www.timesofisrael.com/feed/"
     # ✅ 已验证，以色列最主要英文媒体
 
-  - name: Middle East Eye
+  - name: Middle East Eye via Google News
     type: rss
-    url: "https://www.middleeasteye.net/rss"
-    # ⚠️ 待验证，独立中东媒体，批判性视角，补充西方主流视角盲区
+    url: "https://news.google.com/rss/search?q=when:2d+site:middleeasteye.net&hl=en-US&gl=US&ceid=US:en"
+    # 原 RSS 返回 gzip 压缩响应，rss-parser（Node 原生 http 模块）不自动解压导致解析失败
+    # 改用 Google News 聚合绕过此问题
 
   - name: Arab News
     type: rss
@@ -162,10 +162,10 @@ sources:
     # ⚠️ 待验证，朝鲜半岛专业媒体
     skipKeywordFilter: true
 
-  - name: Irrawaddy 缅甸
+  - name: Irrawaddy 缅甸 via Google News
     type: rss
-    url: "https://www.irrawaddy.com/feed"
-    # ⚠️ 待验证，缅甸独立媒体（泰国注册）
+    url: "https://news.google.com/rss/search?q=when:2d+site:irrawaddy.com+Myanmar&hl=en-US&gl=US&ceid=US:en"
+    # 原 RSS 返回 403，改用 Google News 聚合
     skipKeywordFilter: true
 
   - name: 台海/南海 Google News 聚合
@@ -182,10 +182,10 @@ sources:
   # 五、非洲冲突
   # ============================================================
 
-  - name: Sudan Tribune
+  - name: Sudan Tribune via Google News
     type: rss
-    url: "https://sudantribune.com/feed/"
-    # ✅ 已验证，苏丹/南苏丹专门报道，含全文
+    url: "https://news.google.com/rss/search?q=when:2d+site:sudantribune.com&hl=en-US&gl=US&ceid=US:en"
+    # 原 RSS 返回 403，改用 Google News 聚合
     skipKeywordFilter: true
 
   - name: 非洲冲突 Google News 聚合
@@ -199,8 +199,8 @@ sources:
 
   - name: InSightCrime
     type: rss
-    url: "https://insightcrime.org/news/feed/"
-    # ✅ 已验证，拉美有组织犯罪/安全专业媒体，含全文
+    url: "https://insightcrime.org/feed/"
+    # 拉美有组织犯罪/安全专业媒体。原 /news/feed/ 有 XML 解析错误，根 feed 正常
     skipKeywordFilter: true
 
   # ============================================================
@@ -214,11 +214,10 @@ sources:
     skipKeywordFilter: true
     fetchFullContent: false  # 自带全文
 
-  - name: Foreign Policy
+  - name: Foreign Policy via Google News
     type: rss
-    url: "https://foreignpolicy.com/feed/"
-    # ⚠️ 待验证，地缘政治深度分析
-    fetchFullContent: true
+    url: "https://news.google.com/rss/search?q=when:2d+site:foreignpolicy.com&hl=en-US&gl=US&ceid=US:en"
+    # 原 RSS 在中国大陆 TLS 阻断，改用 Google News 聚合
 
   - name: International Crisis Group
     type: rss
@@ -230,20 +229,20 @@ sources:
   # 八、中文信息源
   # ============================================================
 
-  - name: BBC 中文国际
+  - name: BBC 中文国际 via Google News
     type: rss
-    url: "http://feeds.bbci.co.uk/zhongwen/simp/world/rss.xml"
-    # ✅ BBC 官方中文版，稳定
+    url: "https://news.google.com/rss/search?q=when:2d+site:bbc.com+%E4%B8%AD%E6%96%87&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"
+    # 原 BBC 中文 RSS 在中国大陆 TLS 阻断，改用 Google News 聚合
 
-  - name: 新华社国际 via RSSHub
+  - name: 新华社国际 via Google News
     type: rss
-    url: "https://rsshub.app/xinhua/world"
-    # 🔧 RSSHub 维护，需要可访问的 RSSHub 实例
-    # 如果 rsshub.app 不可用，改为自建实例地址
+    url: "https://news.google.com/rss/search?q=when:2d+site:xinhuanet.com+world&hl=en-US&gl=US&ceid=US:en"
+    # 原 RSSHub 实例 (rsshub.app) 返回 403，改用 Google News 聚合
 
   - name: 中文地缘冲突 Google News
     type: rss
-    url: "https://news.google.com/rss/search?q=冲突+战争+制裁+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"
+    url: "https://news.google.com/rss/search?q=%E5%86%B2%E7%AA%81+%E6%88%98%E4%BA%89+%E5%88%B6%E8%A3%81+when:2d&hl=zh-CN&gl=CN&ceid=CN:zh-Hans"
+    # 中文关键词已 URL 编码（冲突、战争、制裁），解决原 URL 未转义字符导致请求失败的问题
     skipKeywordFilter: true
 
 # ============================================================
@@ -463,4 +462,70 @@ dedup:
   retentionDays: 7
 
 output:
-  dir: "/Users/yangzhuoran/program/ObsidianWithAI/NewsBriefs/全球地缘冲突"
+  dir: "${NEWS_BRIEFS_ROOT}/全球地缘冲突"
+
+# ============================================================
+# 编辑层配置 — 控制 LLM 怎么写、写给谁、不写什么
+# ============================================================
+editorial:
+  # 编辑人设。会拼进 SYSTEM_PROMPT 顶部。
+  persona: "私人内参编辑，给一位长期关注全球地缘冲突的熟客做日报"
+
+  # 写作语气与风格示范。多行字符串，原样注入到 prompt。
+  tone: |
+    口语化、有立场、敢下判断。可以说"说白了就是…"、"别看官方说得漂亮，本质是…"、
+    "我看这事最关键的不是 A，而是 B"。不装客观，但每个判断都要有素材里的依据，
+    不能凭空发挥。避免"或将"、"可能"、"有观察人士认为"这种官话。
+
+  # 读者最关心的方向。LLM 据此排序 keyDevelopments、决定 editorTake 的视角。
+  interests:
+    - 中东能源与航道（霍尔木兹、苏伊士、马六甲、巴布海峡）
+    - 俄乌战场进展与停火谈判
+    - 中美俄三方博弈、穿梭外交、阵营再校准
+    - 台海与南海军事动向
+    - 朝鲜半岛安全与朝俄军技合作
+    - 全球制裁、关键矿产、供应链安全
+
+  # 读者明确不关心的话题。LLM 阶段判断，自然语言列表。
+  # 命中这些话题的素材：禁止进入 keyDevelopments，可酌情进入 briefs，或直接忽略。
+  excludeTopics:
+    - 与地缘冲突无关的国内政治丑闻、司法判决、移民案件
+    - 名人/娱乐/体育/文艺/播客
+    - 与冲突无关的飞行表演、演习意外、交通事故
+    - 与地缘冲突无关的医疗、卫生、教育新闻
+    - 流亡媒体的人物专访、回忆录式内容
+
+  # fetch 阶段硬过滤。标题/摘要命中任一关键词即丢弃（在 keywords 通过后再过一遍）。
+  # 大小写不敏感，适合放高确信度的"绝对不要"。
+  excludeKeywords:
+    - "U-17"
+    - "U-23"
+    - football
+    - soccer
+    - 足球
+    - air show
+    - 航空展
+    - podcast
+    - 播客
+    - voting rights
+    - defamation
+    - NHS
+
+  # 低关注度怎么处理：
+  #   "brief"  → 合并进 briefs 区（一行短讯，不展开）— 推荐
+  #   "drop"   → 直接丢弃，不出现在简报里
+  #   "expand" → 仍作为 keyDevelopments 完整展开（等同旧行为）
+  lowAttentionHandling: brief
+
+  # 速读区配置
+  tldr:
+    enabled: true
+    maxItems: 5
+
+  # 关键变化数量上限
+  keyDevelopmentsLimit:
+    high: 5      # 高关注度最多 N 条
+    medium: 3    # 中关注度最多 N 条
+
+  # 是否把 context 段合并进 overview（删除冗余的"整体背景"独立段）
+  mergeContextIntoOverview: true

@@ -658,4 +658,4 @@ dedup:
   retentionDays: 10
 
 output:
-  dir: "/Users/yangzhuoran/program/ObsidianWithAI/NewsBriefs/全球地缘冲突"
+  dir: "${NEWS_BRIEFS_ROOT}/全球地缘冲突"

@@ -11,7 +11,7 @@ function createModel() {
   return new ChatOpenAI({
     apiKey: process.env.LLM_API_KEY,
     model: process.env.LLM_MODEL || 'gpt-4o-mini',
-    temperature: 0.3,
+    temperature: Number(process.env.LLM_TEMPERATURE) || 0.6,
     configuration: {
       baseURL: process.env.LLM_BASE_URL,
     },

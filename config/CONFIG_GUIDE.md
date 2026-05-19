@@ -330,6 +330,74 @@ output:
 
 综合以上所有类型，配置文件的完整形态：
 
+---
+## 十一、编辑层配置（editorial）
+
+控制 LLM 的写作风格、读者画像、内容筛选和输出结构。整个 `editorial` 段是可选的，缺失时走代码内默认值。
+
+### 字段速查
+
+| 字段 | 必须 | 默认值 | 说明 |
+|------|------|--------|------|
+| `persona` | 否 | `资深国际新闻主编` | 编辑人设，拼进 system prompt 顶部 |
+| `tone` | 否 | `专业克制，有判断但不情绪化` | 写作语气与风格示范，原样注入 prompt |
+| `interests` | 否 | `[]` | 读者最关心的方向列表，LLM 据此排序和定视角 |
+| `excludeTopics` | 否 | `[]` | 读者不感兴趣的话题（自然语言），LLM 据此剔除或降级 |
+| `excludeKeywords` | 否 | `[]` | fetch 阶段硬过滤的关键词，标题/摘要命中即丢弃（大小写不敏感） |
+| `lowAttentionHandling` | 否 | `brief` | 低关注度素材处理：`brief`（合并进短讯区）、`drop`（丢弃）、`expand`（正常展开） |
+| `tldr.enabled` | 否 | `true` | 是否生成 30 秒速读区 |
+| `tldr.maxItems` | 否 | `5` | 速读区最多几条 bullet |
+| `keyDevelopmentsLimit.high` | 否 | `5` | 高关注度最多展示几条 |
+| `keyDevelopmentsLimit.medium` | 否 | `3` | 中关注度最多展示几条 |
+| `mergeContextIntoOverview` | 否 | `true` | 是否把 context 段合并进 overview（删除冗余的独立背景段） |
+
+### 完整示例
+
+```yaml
+editorial:
+  persona: "私人内参编辑，给一位长期关注全球地缘冲突的熟客做日报"
+  tone: |
+    口语化、有立场、敢下判断。可以说"说白了就是…"。
+    不装客观，但每个判断都要有素材里的依据。
+  interests:
+    - 中东能源与航道
+    - 俄乌战场进展与停火谈判
+    - 中美俄三方博弈
+    - 台海与南海军事动向
+  excludeTopics:
+    - 与地缘冲突无关的国内政治丑闻
+    - 名人/娱乐/体育/文艺
+    - 与冲突无关的交通事故
+  excludeKeywords:
+    - "U-17"
+    - football
+    - soccer
+    - podcast
+  lowAttentionHandling: brief
+  tldr:
+    enabled: true
+    maxItems: 5
+  keyDevelopmentsLimit:
+    high: 5
+    medium: 3
+  mergeContextIntoOverview: true
+```
+
+### 向后兼容
+
+整个 `editorial` 段可省略。缺失时：
+- `persona` / `tone` 用默认值（专业克制风格）
+- `excludeKeywords` / `excludeTopics` 为空（不过滤）
+- `lowAttentionHandling` = `brief`（低关注度进短讯区）
+- `tldr.enabled` = `true`（默认生成速读区）
+- `mergeContextIntoOverview` = `true`（默认合并，更紧凑）
+
+不加 editorial 段的其他主题 yaml 基本保持原有行为，仅输出版面多出 TL;DR 和短讯区。
+
+---
+
+## 十、完整示例
+
 ```yaml
 id: my-topic
 title: 我的新闻主题
@@ -395,4 +463,24 @@ dedup:
 
 output:
   dir: "/absolute/path/to/output"
+
+editorial:
+  persona: "私人内参编辑"
+  tone: "口语化、有立场、敢下判断"
+  interests:
+    - 中东能源与航道
+    - 俄乌战场进展
+  excludeTopics:
+    - 娱乐/体育/名人
+  excludeKeywords:
+    - football
+    - podcast
+  lowAttentionHandling: brief
+  tldr:
+    enabled: true
+    maxItems: 5
+  keyDevelopmentsLimit:
+    high: 5
+    medium: 3
+  mergeContextIntoOverview: true
 ```

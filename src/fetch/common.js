@@ -35,6 +35,21 @@ export function filterByKeywords(items, keywords) {
 }
 
 /**
+ * 排除关键词过滤：标题或摘要命中任一关键词则丢弃（大小写不敏感）
+ * @param {import('./types.js').NewsItem[]} items
+ * @param {string[]} excludeKeywords
+ * @returns {import('./types.js').NewsItem[]}
+ */
+export function filterByExcludeKeywords(items, excludeKeywords) {
+  if (!excludeKeywords || excludeKeywords.length === 0) return items
+  const lowered = excludeKeywords.map(k => k.toLowerCase())
+  return items.filter(item => {
+    const text = `${item.title} ${item.summary}`.toLowerCase()
+    return !lowered.some(k => text.includes(k))
+  })
+}
+
+/**
  * URL 去重：同一 URL 只保留首次出现的条目
  * @param {import('./types.js').NewsItem[]} items
  * @param {Set<string>} [existingUrls] - 已有的 URL 集合（用于跨源去重+历史去重）
@@ -95,6 +110,17 @@ export function applyFilters(items, filterConfig, seenUrls, options = {}) {
   }
   if (auditor) {
     auditor.event('pipeline_filter', { stage: 'keyword', before: beforeKw, after: result.length, dropped: droppedKw })
+  }
+
+  // 排除关键词过滤
+  const beforeExclude = result.length
+  result = filterByExcludeKeywords(result, filterConfig.excludeKeywords)
+  const droppedExclude = beforeExclude - result.length
+  if (droppedExclude > 0) {
+    console.log(`  排除关键词剔除 ${droppedExclude} 条`)
+  }
+  if (auditor) {
+    auditor.event('pipeline_filter', { stage: 'exclude_keyword', before: beforeExclude, after: result.length, dropped: droppedExclude })
   }
 
   // URL 去重

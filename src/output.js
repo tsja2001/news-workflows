@@ -10,7 +10,7 @@
  *   - 文件名精确到秒 → 同一天多次运行不会互相覆盖
  *   - 字段缺失时显示"（无）"而不是报错 → LLM 偶尔会偷懒，要兜底
  *   - Markdown 有 YAML frontmatter → Obsidian 能识别为笔记属性
- *   - keyDevelopments 是对象数组，每条有 title/detail/importance
+ *   - keyDevelopments 支持新旧两种格式：新版 what/why/editorTake，旧版 detail
  */
 
 import fs from 'fs/promises'
@@ -38,12 +38,14 @@ function datetimeStr() {
 /**
  * 构建 Markdown 内容
  *
- * 结构（主编深加工版）：
- *   YAML frontmatter（Obsidian 属性）
+ * 结构（私人内参版）：
+ *   YAML frontmatter（含 itemsUsed/itemsDropped）
  *   → 标题
- *   → 本期概览
- *   → 关键变化（每条含标题、详细分析、重要度）
- *   → 整体背景
+ *   → 30 秒速读（可选，TL;DR bullets）
+ *   → 本期概览（合并了旧版整体背景）
+ *   → 关键变化（每条三段：发生了什么/为什么重要/编辑怎么看）
+ *   → 今日短讯（可选，低关注度合并）
+ *   → 整体背景（仅 mergeContextIntoOverview=false 时显示）
  *   → 时间线
  *   → 值得关注的信号
  *   → 风险判断
@@ -59,20 +61,64 @@ function datetimeStr() {
 function buildMarkdown(report, items, config) {
   const date = todayStr()
   const generatedAt = new Date().toISOString()
+  const editorial = config.editorial || {}
+  const mergeContext = editorial.mergeContextIntoOverview !== false
 
-  // keyDevelopments 现在是对象数组，每条有 title/detail/importance
+  // TL;DR 速读
+  const tldrEnabled = editorial.tldr?.enabled !== false
+  const tldr = (report.tldr || []).map(t => `- ${t}`).join('\n') || '（无）'
+
+  // 关键变化：每条三段（兼容旧字段 detail）
   const keyDev = (report.keyDevelopments || []).map((d, i) => {
     const imp = d.importance === 'high' ? '🔴 高关注' : '🟡 中等'
-    return `${i + 1}. **${d.title}** _[${imp}]_\n\n   ${d.detail}`
-  }).join('\n\n') || '（无）'
+    if (d.what || d.why || d.editorTake) {
+      return `### ${i + 1}. ${d.title} ${imp}
+
+**发生了什么**：${d.what || '（无）'}
+
+**为什么重要**：${d.why || '（无）'}
+
+**编辑怎么看**：${d.editorTake || '（无）'}`
+    }
+    return `### ${i + 1}. ${d.title} ${imp}
+
+${d.detail || '（无）'}`
+  }).join('\n\n---\n\n') || '（无）'
+
+  // 短讯
+  const briefs = (report.briefs || []).map(b => `- ${b}`).join('\n')
 
   const timeline = (report.timeline || []).map(t => `- ${t.time} ${t.event}`).join('\n') || '（无）'
   const signals = (report.signals || []).map(s => `- ${s}`).join('\n') || '（无）'
   const risks = (report.risks || []).map(r => `- ${r}`).join('\n') || '（无）'
   const unknowns = (report.unknowns || []).map(u => `- ${u}`).join('\n') || '（无）'
 
-  // 生成来源列表，用 Markdown 链接格式 [源名称: 标题](URL)
   const sources = items.map(item => `- [${item.source}: ${item.title}](${item.url})`).join('\n')
+
+  // 拼装：可选段落用条件渲染
+  const sections = []
+  sections.push(`# ${config.title}`)
+  if (tldrEnabled && report.tldr?.length) {
+    sections.push(`## 30 秒速读\n\n${tldr}`)
+  }
+  sections.push(`## 本期概览\n\n${report.overview || '（无）'}`)
+  sections.push(`## 关键变化\n\n${keyDev}`)
+  if (briefs) {
+    sections.push(`## 今日短讯\n\n${briefs}`)
+  }
+  if (!mergeContext && report.context) {
+    sections.push(`## 整体背景\n\n${report.context}`)
+  }
+  sections.push(`## 时间线\n\n${timeline}`)
+  sections.push(`## 值得关注的信号\n\n${signals}`)
+  sections.push(`## 风险判断\n\n${risks}`)
+  sections.push(`## 信息缺口\n\n${unknowns}`)
+  sections.push(`## 主编复盘\n\n${report.editorReview || '（无）'}`)
+  sections.push(`## 来源\n\n${sources}`)
+
+  // frontmatter 增加 itemsUsed 字段
+  const itemsUsed = (report.keyDevelopments?.length || 0) + (report.briefs?.length || 0)
+  const itemsDropped = Math.max(0, items.length - itemsUsed)
 
   return `---
 topic: ${config.id}
@@ -80,45 +126,11 @@ title: ${config.title}
 date: ${date}
 generatedAt: ${generatedAt}
 sourceCount: ${items.length}
+itemsUsed: ${itemsUsed}
+itemsDropped: ${itemsDropped}
 ---
 
-# ${config.title}
-
-## 本期概览
-
-${report.overview || '（无）'}
-
-## 关键变化
-
-${keyDev}
-
-## 整体背景
-
-${report.context || '（无）'}
-
-## 时间线
-
-${timeline}
-
-## 值得关注的信号
-
-${signals}
-
-## 风险判断
-
-${risks}
-
-## 信息缺口
-
-${unknowns}
-
-## 主编复盘
-
-${report.editorReview || '（无）'}
-
-## 来源
-
-${sources}
+${sections.join('\n\n')}
 `
 }
 

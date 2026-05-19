@@ -33,7 +33,11 @@ async function main() {
 
   // ── 步骤 2：抓取与过滤 ──
   console.log(`[2/4] 抓取新闻 "${config.title}"...`)
-  const items = await fetchAndFilter(config, { noDedup, auditor })
+  const filterConfig = {
+    ...config.filter,
+    excludeKeywords: config.editorial?.excludeKeywords || [],
+  }
+  const items = await fetchAndFilter({ ...config, filter: filterConfig }, { noDedup, auditor })
   console.log(`      过滤去重后共 ${items.length} 条`)
 
   if (items.length === 0) {

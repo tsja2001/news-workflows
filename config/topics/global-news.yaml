@@ -132,4 +132,4 @@ dedup:
   enabled: true
 
 output:
-  dir: "/Users/yangzhuoran/program/ObsidianWithAI/NewsBriefs/全球新闻汇总"
+  dir: "${NEWS_BRIEFS_ROOT}/全球新闻汇总"
