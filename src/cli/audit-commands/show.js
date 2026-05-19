@@ -48,10 +48,25 @@ export async function cmdShow(runId) {
 
   // LLM
   if (run.llm) {
-    const tokens = (run.llm.inputTokens || 0) + (run.llm.outputTokens || 0)
-    console.log('LLM:')
-    console.log(`  模型: ${run.llm.model || '?'}`)
-    console.log(`  Tokens: ${fmtTokens(run.llm.inputTokens || 0)} / ${fmtTokens(run.llm.outputTokens || 0)} (${run.totals.estimatedCost || '约 ¥0.00'})`)
+    const stages = run.llm.stages || []
+
+    if (stages.length > 0) {
+      console.log('LLM 阶段:')
+      for (const s of stages) {
+        const stageLabel = s.stage === 'preprocess' ? '预处理'
+          : s.stage === 'final_write' ? '最终成稿'
+          : s.stage === 'validation' ? '校验'
+          : s.stage
+        const tokens = (s.inputTokens || 0) + (s.outputTokens || 0)
+        console.log(`  [${stageLabel}] ${s.model}`)
+        console.log(`    Tokens: ${fmtTokens(s.inputTokens)} / ${fmtTokens(s.outputTokens)} (${s.estimatedCost || '约 ¥0.00'}) | 耗时: ${formatDuration(s.durationMs)}`)
+      }
+      console.log(`  总计 Tokens: ${fmtTokens(run.llm.inputTokens || 0)} / ${fmtTokens(run.llm.outputTokens || 0)} (${run.totals.estimatedCost || '约 ¥0.00'})`)
+    } else {
+      console.log('LLM:')
+      console.log(`  模型: ${run.llm.model || '?'}`)
+      console.log(`  Tokens: ${fmtTokens(run.llm.inputTokens || 0)} / ${fmtTokens(run.llm.outputTokens || 0)} (${run.totals.estimatedCost || '约 ¥0.00'})`)
+    }
     console.log()
   }
 

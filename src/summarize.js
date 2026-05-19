@@ -1,31 +1,13 @@
 /**
  * ============================================================
- * 新闻摘要模块 — 构建提示词，调用 LLM 生成结构化简报
+ * 新闻摘要模块 — 编排层
  * ============================================================
  *
- * 这个模块负责：
- *   1. 定义 system prompt（LLM 的角色设定）
- *   2. 把新闻列表拼成 user prompt（具体的任务+数据）
- *   3. 调用 llm.js 的 callLLMForJson() 获取结构化结果
+ * 支持两种模式：
+ *   single  — 单模型直接成稿（向后兼容，默认模式）
+ *   hybrid  — DeepSeek 预处理 + Claude 最终成稿
  *
- * 设计理念：
- *   - 这个文件不直接接触 LangChain SDK，只通过 callLLMForJson 调用
- *   - system prompt 和 user prompt 分离：system稳定不变，user每次不同
- *   - 提示词中明确"字段没内容就返回空数组"，防止 LLM 编造内容填空
- *
- * LLM 返回的 JSON 结构（私人内参版）：
- *   {
- *     tldr: ["30 秒速读 bullet"],
- *     overview: "本期概览 100-150字",
- *     keyDevelopments: [{title, what, why, editorTake, importance}, ...],
- *     briefs: ["低关注度短讯"],
- *     timeline: [{time: "MM-DD HH:mm", event: "描述"}],
- *     signals: ["值得关注的信号"],
- *     risks: ["风险判断"],
- *     unknowns: ["信息缺口"],
- *     editorReview: "主编复盘 150-300字"
- *   }
- *   注：合并了旧版 context 段到 overview；keyDevelopments 同时兼容旧 {title, detail, importance} 格式
+ * 模式由 yaml 的 llmPipeline.mode 控制，未配置时默认 single。
  */
 
 import { callLLMForJsonWithMeta } from './llm.js'
@@ -131,14 +113,9 @@ ${itemsText}`
 }
 
 /**
- * 生成简报的主函数
- * @param {Array}  items  - 新闻条目
- * @param {object} config - 主题配置
- * @param {object} [options]
- * @param {object} [options.auditor] - 审计日志记录器
- * @returns {Promise<object>} LLM 返回的结构化简报 JSON
+ * 单模型总结（向后兼容）
  */
-export async function summarize(items, config, options = {}) {
+async function summarizeSingleModel(items, config, options = {}) {
   const auditor = options.auditor
   const userPrompt = buildUserPrompt(items, config)
   const startMs = Date.now()
@@ -169,4 +146,76 @@ export async function summarize(items, config, options = {}) {
   }
 
   return result
+}
+
+/**
+ * Hybrid 总结：DeepSeek 预处理 + Claude 成稿 + 可选校验
+ * 单阶段失败时按配置回退（默认回退到单模型）
+ */
+async function summarizeHybrid(items, config, options = {}) {
+  const auditor = options.auditor
+
+  // 阶段 1：预处理（失败时回退单模型）
+  let prepResult
+  try {
+    const { preprocessItems } = await import('./summarize/preprocess.js')
+    prepResult = await preprocessItems(items, config, { auditor })
+  } catch (err) {
+    console.error(`[hybrid] 预处理失败: ${err.message}，回退到单模型模式`)
+    if (auditor) {
+      auditor.event('preprocess_failed', { error: err.message, fallback: 'single_model' })
+    }
+    return await summarizeSingleModel(items, config, options)
+  }
+
+  // 阶段 2：最终成稿（失败策略由配置决定）
+  try {
+    const { writeFinalReport } = await import('./summarize/write-report.js')
+    const { result } = await writeFinalReport(prepResult.modelItems, prepResult.result, config, { auditor })
+
+    // 阶段 3：可选校验
+    if (config.llmPipeline?.validation?.enabled) {
+      const { validateReport } = await import('./summarize/validate.js')
+      const validated = await validateReport(result, config, { auditor })
+      if (validated.issues.length > 0) {
+        console.error(`[校验] 发现 ${validated.issues.length} 个问题，已修复 ${validated.fixed.length} 个`)
+      }
+      return validated.report
+    }
+
+    return result
+  } catch (err) {
+    const onFailure = config.llmPipeline?.writer?.onFailure || 'fail'
+    console.error(`[hybrid] 最终成稿失败: ${err.message}`)
+
+    if (auditor) {
+      auditor.event('writer_failed', { error: err.message, onFailure })
+    }
+
+    if (onFailure === 'fallbackToPreprocessModel') {
+      console.error(`[hybrid] 回退到单模型模式`)
+      return await summarizeSingleModel(items, config, options)
+    }
+
+    throw err
+  }
+}
+
+/**
+ * 生成简报的主函数（编排层）
+ *
+ * @param {Array}  items  - 新闻条目
+ * @param {object} config - 主题配置（含 editorial 和可选的 llmPipeline）
+ * @param {object} [options]
+ * @param {object} [options.auditor]
+ * @returns {Promise<object>} LLM 返回的结构化简报 JSON
+ */
+export async function summarize(items, config, options = {}) {
+  const mode = config.llmPipeline?.mode || 'single'
+
+  if (mode === 'hybrid') {
+    return await summarizeHybrid(items, config, options)
+  }
+
+  return await summarizeSingleModel(items, config, options)
 }

@@ -2,18 +2,52 @@
  * ============================================================
  * LLM 调用封装模块 — 统一的大模型交互层
  * ============================================================
+ *
+ * 支持多模型 role 分工：
+ *   default     → 兼容旧逻辑，读 LLM_* 环境变量
+ *   preprocess  → DeepSeek 预处理，读 LLM_PREPROCESS_*，缺失回退 LLM_*
+ *   writer      → Claude 最终成稿，读 LLM_WRITER_*，缺失回退 LLM_*
+ *   validator   → 校验阶段，读 LLM_VALIDATOR_*，缺失回退 LLM_*
  */
 
 import { ChatOpenAI } from '@langchain/openai'
 import { SystemMessage, HumanMessage } from '@langchain/core/messages'
 
-function createModel() {
+/**
+ * 按 role 读取环境变量配置，缺失时回退到 LLM_* 默认值
+ * @param {string} role - default | preprocess | writer | validator
+ * @returns {{ apiKey: string, baseURL: string, model: string, temperature: number }}
+ */
+function getRoleConfig(role) {
+  const prefix = role === 'default' ? 'LLM' : `LLM_${role.toUpperCase()}`
+
+  const apiKey = process.env[`${prefix}_API_KEY`] || process.env.LLM_API_KEY
+  const baseURL = process.env[`${prefix}_BASE_URL`] || process.env.LLM_BASE_URL
+  const model = process.env[`${prefix}_MODEL`] || process.env.LLM_MODEL || 'gpt-4o-mini'
+
+  const roleTemp = process.env[`${prefix}_TEMPERATURE`]
+  const defaultTemp = process.env.LLM_TEMPERATURE
+  const temperature = roleTemp !== undefined
+    ? Number(roleTemp)
+    : (defaultTemp !== undefined ? Number(defaultTemp) : 0.6)
+
+  return { apiKey, baseURL, model, temperature }
+}
+
+/**
+ * 按 role 创建 LangChain ChatOpenAI 实例
+ * @param {string} role
+ * @returns {ChatOpenAI}
+ */
+function createModelClient(role = 'default') {
+  const config = getRoleConfig(role)
+
   return new ChatOpenAI({
-    apiKey: process.env.LLM_API_KEY,
-    model: process.env.LLM_MODEL || 'gpt-4o-mini',
-    temperature: Number(process.env.LLM_TEMPERATURE) || 0.6,
+    apiKey: config.apiKey,
+    model: config.model,
+    temperature: config.temperature,
     configuration: {
-      baseURL: process.env.LLM_BASE_URL,
+      baseURL: config.baseURL,
     },
   })
 }
@@ -40,7 +74,6 @@ function repairAndParseJson(raw) {
   )
   if (jsonStart !== Infinity && jsonStart > 0) {
     text = text.slice(jsonStart)
-    // 去掉尾部多余文本（试试找到对应的闭合）
     const firstChar = text[0]
     const closer = firstChar === '[' ? ']' : '}'
     const lastClose = text.lastIndexOf(closer)
@@ -64,11 +97,16 @@ function repairAndParseJson(raw) {
  *
  * @param {string} systemPrompt
  * @param {string} userPrompt
- * @returns {Promise<{ result: object, tokens: { input: number, output: number }, model: string }>}
+ * @param {object} [options]
+ * @param {string} [options.role='default']  - 模型角色
+ * @param {string} [options.stage='summarize'] - 阶段标识（用于审计）
+ * @returns {Promise<{ result: object, tokens: { input: number, output: number }, model: string, role: string, stage: string }>}
  */
-export async function callLLMForJsonWithMeta(systemPrompt, userPrompt) {
-  const model = createModel()
-  const modelName = process.env.LLM_MODEL || 'gpt-4o-mini'
+export async function callLLMForJsonWithMeta(systemPrompt, userPrompt, options = {}) {
+  const role = options.role || 'default'
+  const stage = options.stage || 'summarize'
+  const config = getRoleConfig(role)
+  const model = createModelClient(role)
 
   const messages = [
     new SystemMessage(systemPrompt),
@@ -90,7 +128,9 @@ export async function callLLMForJsonWithMeta(systemPrompt, userPrompt) {
   return {
     result,
     tokens: { input: inputTokens, output: outputTokens },
-    model: modelName,
+    model: config.model,
+    role,
+    stage,
   }
 }
 
@@ -99,9 +139,12 @@ export async function callLLMForJsonWithMeta(systemPrompt, userPrompt) {
  *
  * @param {string} systemPrompt
  * @param {string} userPrompt
+ * @param {object} [options]
+ * @param {string} [options.role]
+ * @param {string} [options.stage]
  * @returns {Promise<object>}
  */
-export async function callLLMForJson(systemPrompt, userPrompt) {
-  const { result } = await callLLMForJsonWithMeta(systemPrompt, userPrompt)
+export async function callLLMForJson(systemPrompt, userPrompt, options = {}) {
+  const { result } = await callLLMForJsonWithMeta(systemPrompt, userPrompt, options)
   return result
 }

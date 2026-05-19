@@ -5,6 +5,7 @@
  *
  * 每条事件以统一信封追加写入 JSONL 文件。
  * 运行结束时生成 summary.json 汇总文件。
+ * 支持多阶段 LLM 成本追踪。
  */
 
 import fs from 'fs'
@@ -62,12 +63,27 @@ function safeStringify(obj) {
 }
 
 /**
- * 从 .env 读取价格配置
+ * 从 .env 读取默认价格配置
  */
 function getPriceConfig() {
   return {
     inputPrice: parseFloat(process.env.LLM_INPUT_PRICE_PER_1M_TOKENS || '0.14'),
     outputPrice: parseFloat(process.env.LLM_OUTPUT_PRICE_PER_1M_TOKENS || '0.28'),
+  }
+}
+
+/**
+ * 按 role 读取价格配置，缺失回退默认
+ */
+function getPriceConfigForRole(role) {
+  if (!role || role === 'default') return getPriceConfig()
+  const prefix = `LLM_${role.toUpperCase()}`
+  const inputPrice = process.env[`${prefix}_INPUT_PRICE_PER_1M_TOKENS`]
+  const outputPrice = process.env[`${prefix}_OUTPUT_PRICE_PER_1M_TOKENS`]
+  const defaults = getPriceConfig()
+  return {
+    inputPrice: inputPrice !== undefined ? parseFloat(inputPrice) : defaults.inputPrice,
+    outputPrice: outputPrice !== undefined ? parseFloat(outputPrice) : defaults.outputPrice,
   }
 }
 
@@ -126,7 +142,7 @@ export function createAuditor(runContext) {
     try {
       fs.appendFileSync(jsonlPath, line + '\n', 'utf-8')
       eventCount++
-    } catch (err) {
+    } catch {
       // 写入失败静默忽略，不中断主流程
     }
   }
@@ -189,14 +205,19 @@ function buildSummary(jsonlPath, topic, runId) {
     durationMs: 0,
     sources: [],
     pipeline: {},
-    llm: {},
+    llm: {
+      stages: [],
+      model: '',
+      inputTokens: 0,
+      outputTokens: 0,
+    },
     totals: { tokensUsedAll: 0, estimatedCost: '约 ¥0.00' },
   }
 
-  const priceConfig = getPriceConfig()
-  const sourceMap = new Map() // key: sourceName → stats
+  const sourceMap = new Map()
   let totalInputTokens = 0
   let totalOutputTokens = 0
+  const stages = []
 
   try {
     const content = fs.readFileSync(jsonlPath, 'utf-8')
@@ -259,6 +280,8 @@ function buildSummary(jsonlPath, topic, runId) {
             summary.pipeline[data.stage] = { before: data.before, after: data.after }
           }
           break
+
+        // ── LLM 阶段事件（单模型兼容） ──
         case 'llm_input_prepared':
           summary.llm.itemCount = data.itemCount || 0
           break
@@ -270,6 +293,85 @@ function buildSummary(jsonlPath, topic, runId) {
           summary.llm.model = data.model || summary.llm.model || ''
           summary.llm.durationMs = data.durationMs || 0
           break
+
+        // ── 多阶段 LLM 事件 ──
+        case 'preprocess_input_prepared':
+          if (data.tokens) {
+            totalInputTokens += data.tokens.input || 0
+            totalOutputTokens += data.tokens.output || 0
+          }
+          break
+        case 'preprocess_completed':
+          if (data.tokens) {
+            totalInputTokens += data.tokens.input || 0
+            totalOutputTokens += data.tokens.output || 0
+          }
+          {
+            const prices = getPriceConfigForRole('preprocess')
+            const cost = estimateCost(data.tokens?.input || 0, data.tokens?.output || 0, prices)
+            stages.push({
+              stage: 'preprocess',
+              role: 'preprocess',
+              model: data.model || '',
+              inputTokens: data.tokens?.input || 0,
+              outputTokens: data.tokens?.output || 0,
+              estimatedCost: `约 ¥${cost.toFixed(4)}`,
+              durationMs: data.durationMs || 0,
+              clustersCount: data.clustersCount,
+              briefCandidatesCount: data.briefCandidatesCount,
+              dropCandidatesCount: data.dropCandidatesCount,
+            })
+          }
+          if (!summary.llm.model) summary.llm.model = data.model || ''
+          break
+
+        case 'writer_input_prepared':
+          break
+        case 'writer_completed':
+          if (data.tokens) {
+            totalInputTokens += data.tokens.input || 0
+            totalOutputTokens += data.tokens.output || 0
+          }
+          {
+            const prices = getPriceConfigForRole('writer')
+            const cost = estimateCost(data.tokens?.input || 0, data.tokens?.output || 0, prices)
+            stages.push({
+              stage: 'final_write',
+              role: 'writer',
+              model: data.model || '',
+              inputTokens: data.tokens?.input || 0,
+              outputTokens: data.tokens?.output || 0,
+              estimatedCost: `约 ¥${cost.toFixed(4)}`,
+              durationMs: data.durationMs || 0,
+              keyDevelopmentsCount: data.keyDevelopmentsCount,
+              briefsCount: data.briefsCount,
+            })
+          }
+          if (!summary.llm.model) summary.llm.model = data.model || ''
+          break
+
+        case 'validation_completed':
+          if (data.tokens) {
+            totalInputTokens += data.tokens.input || 0
+            totalOutputTokens += data.tokens.output || 0
+          }
+          {
+            const prices = getPriceConfigForRole('validator')
+            const cost = estimateCost(data.tokens?.input || 0, data.tokens?.output || 0, prices)
+            stages.push({
+              stage: 'validation',
+              role: 'validator',
+              model: data.model || '',
+              inputTokens: data.tokens?.input || 0,
+              outputTokens: data.tokens?.output || 0,
+              estimatedCost: `约 ¥${cost.toFixed(4)}`,
+              durationMs: data.durationMs || 0,
+              issuesFound: data.issuesFound,
+              issuesFixed: data.issuesFixed,
+            })
+          }
+          break
+
         case 'run_completed':
           summary.durationMs = data.durationMs || 0
           break
@@ -280,12 +382,20 @@ function buildSummary(jsonlPath, topic, runId) {
   }
 
   summary.sources = Array.from(sourceMap.values())
+
+  if (stages.length > 0) {
+    summary.llm.stages = stages
+  }
+
+  // 向后兼容：保留顶层汇总字段
+  summary.llm.inputTokens = totalInputTokens
+  summary.llm.outputTokens = totalOutputTokens
+
+  const priceConfig = getPriceConfig()
   summary.totals = {
     tokensUsedAll: totalInputTokens + totalOutputTokens,
     estimatedCost: `约 ¥${estimateCost(totalInputTokens, totalOutputTokens, priceConfig).toFixed(2)}`,
   }
-  summary.llm.inputTokens = totalInputTokens
-  summary.llm.outputTokens = totalOutputTokens
 
   if (summary.startedAt && summary.completedAt) {
     summary.durationMs = new Date(summary.completedAt) - new Date(summary.startedAt)
