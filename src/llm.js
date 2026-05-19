@@ -29,7 +29,7 @@ function getRoleConfig(role) {
   const defaultTemp = process.env.LLM_TEMPERATURE
   const temperature = roleTemp !== undefined
     ? Number(roleTemp)
-    : (defaultTemp !== undefined ? Number(defaultTemp) : 0.6)
+    : (defaultTemp !== undefined ? Number(defaultTemp) : undefined)
 
   // maxTokens：预处理需要较大输出（聚类 JSON），默认 16384；其他 stage 不设限
   const roleMaxTokens = process.env[`${prefix}_MAX_TOKENS`]
@@ -64,10 +64,14 @@ function createModelClient(role = 'default') {
   const modelOptions = {
     apiKey: config.apiKey,
     model: config.model,
-    temperature: config.temperature,
     configuration: {
       baseURL: config.baseURL,
     },
+  }
+
+  // temperature 只在明确配置时才传入（Claude 等模型不支持此参数）
+  if (config.temperature !== undefined) {
+    modelOptions.temperature = config.temperature
   }
 
   // maxTokens：预处理需要较大输出空间，默认 16384
