@@ -31,11 +31,18 @@ function getRoleConfig(role) {
     ? Number(roleTemp)
     : (defaultTemp !== undefined ? Number(defaultTemp) : 0.6)
 
+  // maxTokens：预处理需要较大输出（聚类 JSON），默认 16384；其他 stage 不设限
+  const roleMaxTokens = process.env[`${prefix}_MAX_TOKENS`]
+  const defaultMaxTokens = process.env.LLM_MAX_TOKENS
+  const maxTokens = roleMaxTokens !== undefined
+    ? Number(roleMaxTokens)
+    : (defaultMaxTokens !== undefined ? Number(defaultMaxTokens) : undefined)
+
   // 思考模式：DeepSeek 默认开启，但新闻简报场景不需要，默认关闭
   // 设置 LLM_DISABLE_THINKING=false 可重新启用
   const disableThinking = process.env.LLM_DISABLE_THINKING !== 'false'
 
-  return { apiKey, baseURL, model, temperature, disableThinking }
+  return { apiKey, baseURL, model, temperature, maxTokens, disableThinking }
 }
 
 /**
@@ -53,15 +60,25 @@ function createModelClient(role = 'default') {
     kwargs.thinking = { type: 'disabled' }
   }
 
-  return new ChatOpenAI({
+  const modelOptions = {
     apiKey: config.apiKey,
     model: config.model,
     temperature: config.temperature,
     configuration: {
       baseURL: config.baseURL,
     },
-    modelKwargs: Object.keys(kwargs).length > 0 ? kwargs : undefined,
-  })
+  }
+
+  // maxTokens：预处理需要较大输出空间，默认 16384
+  if (config.maxTokens !== undefined) {
+    modelOptions.maxTokens = config.maxTokens
+  }
+
+  if (Object.keys(kwargs).length > 0) {
+    modelOptions.modelKwargs = kwargs
+  }
+
+  return new ChatOpenAI(modelOptions)
 }
 
 /**
