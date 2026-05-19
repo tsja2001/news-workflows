@@ -83,7 +83,16 @@ function createModelClient(role = 'default') {
     modelOptions.modelKwargs = kwargs
   }
 
-  return new ChatOpenAI(modelOptions)
+  const model = new ChatOpenAI(modelOptions)
+
+  // ChatOpenAI 默认 temperature=1, topP=1，构造后??覆盖不掉
+  // Claude 等模型不接受这些参数，未配置时需要手动清掉
+  if (config.temperature === undefined) {
+    model.temperature = undefined
+    model.topP = undefined
+  }
+
+  return model
 }
 
 /**
