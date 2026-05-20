@@ -12,9 +12,12 @@
  */
 
 import { callLLMForJsonWithMeta } from '../llm.js'
+import { createLogger } from '../utils/logger.js'
 
 /** 默认 Claude 最多读取的原始素材数 */
 const DEFAULT_MAX_SOURCE_ITEMS = 35
+/** 默认 writer 输入模式 */
+const DEFAULT_INPUT_MODE = 'clusters'
 
 const DEFAULT_PERSONA = '资深国际新闻主编'
 const DEFAULT_TONE = '专业克制，有判断但不情绪化'
@@ -55,6 +58,40 @@ URL: ${item.url}`
   ).join('\n\n')
 }
 
+function countSourceItemsText(sourceItemsText) {
+  if (!sourceItemsText) return 0
+  return sourceItemsText.split('\n\n').filter(Boolean).length
+}
+
+/**
+ * 构建 writer prompt 输入包
+ */
+export function buildWriterPromptInput(modelItems, prepResult, config) {
+  const pipelineConfig = config.llmPipeline?.writer || {}
+  const inputMode = pipelineConfig.inputMode || DEFAULT_INPUT_MODE
+  const includeRawSourceItems = pipelineConfig.includeRawSourceItems === true
+  const maxSourceItems = pipelineConfig.maxSourceItems || DEFAULT_MAX_SOURCE_ITEMS
+
+  const sourceItemsText = includeRawSourceItems
+    ? buildWriterSourceItems(modelItems, prepResult, maxSourceItems)
+    : ''
+  const prepJson = inputMode === 'editorialPacket'
+    ? JSON.stringify(prepResult)
+    : JSON.stringify(prepResult, null, 2)
+
+  return {
+    inputMode,
+    includeRawSourceItems,
+    maxSourceItems,
+    sourceItemsText,
+    sourceItemsCount: countSourceItemsText(sourceItemsText),
+    prepJson,
+    inputCharCount: prepJson.length + sourceItemsText.length,
+    targetOutputChars: pipelineConfig.targetOutputChars || 0,
+    maxInputOutputRatio: pipelineConfig.maxInputOutputRatio || 0,
+  }
+}
+
 /**
  * 构建 Claude 的 system prompt
  */
@@ -63,12 +100,12 @@ function buildWriterSystemPrompt(editorial = {}) {
   const tone = editorial.tone || DEFAULT_TONE
   const mergeContext = editorial.mergeContextIntoOverview !== false
 
-  return `你是${persona}。你是这份私人内参的最终主编，拥有最终选题权和表达权。
+  return `你是${persona}。你是这份私人内参的最终主编，负责把案头主任准备好的编辑包定稿。
 
 你的工作不是替主流媒体复述新闻，而是替读者把事情吃透、说清。
 
 要做的几件事：
-1. **独立判断选题**：研究助理给你准备了聚类和候选素材，但你可以推翻它的重要性排序。哪些真正值得进入 keyDevelopments，由你决定。
+1. **最终定稿**：案头主任已经完成筛选、压缩和证据整理。你负责标题、排序、表达和最终判断。
 2. **替他过滤**：读者明确告诉过你他不关心哪些话题。即使素材里出现，也不要塞进 keyDevelopments；可以放到 briefs 一行带过，或者直接不提。
 3. **替他判断**：每条变化下面除了"发生了什么"、"为什么重要"，再加一句"编辑怎么看"——你的立场、判断、提醒。可以口语，可以辛辣，但要有素材依据，不能凭空发挥。
 4. **不装客观**：这份简报是给一个人看的，不是发稿。少用"或将"、"可能"、"有观察人士认为"这种官话；多用"说白了"、"我看…"、"别看…其实…"这种直接判断。
@@ -76,7 +113,9 @@ function buildWriterSystemPrompt(editorial = {}) {
 写作风格：${tone}
 
 硬性规则：
-- 只基于提供的素材，绝不编造事实或细节
+- 只基于 editorialPacket 或提供的素材，绝不编造事实或细节
+- 不新增来源、数字、人物、时间、地点
+- 不重新扩展素材范围，不做大范围事实重筛
 - 中文输出
 - 严格按 JSON schema 返回，不要带任何额外解释或 markdown 围栏（不要用 \`\`\`json）
 - 字段没内容就返回空数组/空字符串，不要凑数`
@@ -85,8 +124,9 @@ function buildWriterSystemPrompt(editorial = {}) {
 /**
  * 构建 Claude 的 user prompt
  */
-function buildWriterUserPrompt(sourceItemsText, prepResult, config) {
+export function buildWriterUserPrompt(promptInput, prepResult, config) {
   const editorial = config.editorial || {}
+  const pipelineConfig = config.llmPipeline?.writer || {}
   const interests = editorial.interests || []
   const excludeTopics = editorial.excludeTopics || []
   const tldrEnabled = editorial.tldr?.enabled !== false
@@ -103,30 +143,50 @@ function buildWriterUserPrompt(sourceItemsText, prepResult, config) {
     ? `\n读者明确不感兴趣的话题（请剔除或降到 briefs）：\n${excludeTopics.map(t => `- ${t}`).join('\n')}\n`
     : ''
 
-  // 序列化研究助理的中间稿
-  const prepSummary = JSON.stringify({
-    clusters: (prepResult.clusters || []).map(c => ({
-      clusterId: c.clusterId,
-      title: c.title,
-      importanceHint: c.importanceHint,
-      reason: c.reason,
-      itemIds: c.itemIds,
-      facts: c.facts,
-      whyItMayMatter: c.whyItMayMatter,
-      openQuestions: c.openQuestions,
-    })),
-    briefCandidates: prepResult.briefCandidates || [],
-    dropCandidates: (prepResult.dropCandidates || []).map(d => ({ itemId: d.itemId, reason: d.reason })),
-    timelineCandidates: prepResult.timelineCandidates || [],
-  }, null, 2)
+  const inputMode = promptInput.inputMode || DEFAULT_INPUT_MODE
+  const targetOutputChars = pipelineConfig.targetOutputChars || promptInput.targetOutputChars
+  const ratio = pipelineConfig.maxInputOutputRatio || promptInput.maxInputOutputRatio
 
-  return `请基于以下素材撰写本期编辑简报。
+  const prepSummary = inputMode === 'editorialPacket'
+    ? promptInput.prepJson
+    : JSON.stringify({
+        clusters: (prepResult.clusters || []).map(c => ({
+          clusterId: c.clusterId,
+          title: c.title,
+          importanceHint: c.importanceHint,
+          reason: c.reason,
+          itemIds: c.itemIds,
+          facts: c.facts,
+          whyItMayMatter: c.whyItMayMatter,
+          openQuestions: c.openQuestions,
+        })),
+        briefCandidates: prepResult.briefCandidates || [],
+        dropCandidates: (prepResult.dropCandidates || []).map(d => ({ itemId: d.itemId, reason: d.reason })),
+        timelineCandidates: prepResult.timelineCandidates || [],
+      }, null, 2)
+
+  const sourceBlock = promptInput.includeRawSourceItems
+    ? `\n原始新闻素材（只作核对，不要扩展素材范围）：\n${promptInput.sourceItemsText}`
+    : ''
+
+  const modeIntro = inputMode === 'editorialPacket'
+    ? `请基于 DeepSeek 案头主任提供的 editorialPacket 撰写本期编辑简报。
+
+你只做最终主编定稿：
+- 使用 editorialPacket 中已经筛选好的事实、证据和推荐排序
+- 可以调整标题、排序、合并条目、压缩条目、强化 editorTake
+- 不新增事实，不新增来源、数字、人物、时间、地点
+- 不重新扩展素材范围，不读取大批量原始素材
+- suggestedEditorTake 是建议，你可以重写，但必须仍以 evidence 里的 fact 为依据`
+    : `请基于以下素材撰写本期编辑简报。
 
 研究助理为你准备了聚类分析（见下方 JSON），你应将其作为参考而非最终答案。你可以：
 - 提升/降低某个 cluster 的重要性
 - 合并或拆分 cluster
 - 从 briefCandidates 中提拔值得展开的
-- 重新排序、重新选题
+- 重新排序、重新选题`
+
+  return `${modeIntro}
 
 ${interestsBlock}${excludeBlock}
 
@@ -162,14 +222,14 @@ ${interestsBlock}${excludeBlock}
 - timeline 按时间正序，事件描述要完整自洽
 - signals/risks/unknowns 各 2-4 条，每条要有"为什么"
 - editorTake 是个人观点，可以带情绪、可以辛辣，但要有素材依据
+${targetOutputChars ? `- 目标输出约 ${targetOutputChars} 个中文字符，避免无效铺陈` : ''}
+${ratio ? `- Claude 输入/输出目标比例最多 ${ratio}:1；如果信息太多，优先保留 keyDevelopments 和 editorTake` : ''}
 
-研究助理的聚类参考：
+${inputMode === 'editorialPacket' ? 'editorialPacket' : '研究助理的聚类参考'}：
 \`\`\`json
 ${prepSummary}
 \`\`\`
-
-原始新闻素材（精简版）：
-${sourceItemsText}`
+${sourceBlock}`
 }
 
 /**
@@ -184,21 +244,33 @@ ${sourceItemsText}`
  */
 export async function writeFinalReport(modelItems, prepResult, config, options = {}) {
   const auditor = options.auditor
-  const pipelineConfig = config.llmPipeline?.writer || {}
-  const maxSourceItems = pipelineConfig.maxSourceItems || DEFAULT_MAX_SOURCE_ITEMS
-
-  const sourceItemsText = buildWriterSourceItems(modelItems, prepResult, maxSourceItems)
+  const log = createLogger('writer')
+  const promptInput = buildWriterPromptInput(modelItems, prepResult, config)
+  log.step('最终成稿输入准备完成', {
+    inputMode: promptInput.inputMode,
+    sourceItems: promptInput.sourceItemsCount,
+    inputChars: promptInput.inputCharCount,
+    targetOutputChars: promptInput.targetOutputChars,
+    includeRawSourceItems: promptInput.includeRawSourceItems,
+  })
 
   if (auditor) {
     auditor.event('writer_input_prepared', {
-      sourceItemsCount: sourceItemsText.split('\n\n').length,
+      inputMode: promptInput.inputMode,
+      includeRawSourceItems: promptInput.includeRawSourceItems,
+      sourceItemsCount: promptInput.sourceItemsCount,
+      inputCharCount: promptInput.inputCharCount,
+      targetOutputChars: promptInput.targetOutputChars,
+      maxInputOutputRatio: promptInput.maxInputOutputRatio,
       clustersCount: prepResult.clusters?.length || 0,
       briefCandidatesCount: prepResult.briefCandidates?.length || 0,
+      keyDevelopmentsDraftCount: prepResult.keyDevelopmentsDraft?.length || 0,
+      briefsDraftCount: prepResult.briefsDraft?.length || 0,
     })
   }
 
   const systemPrompt = buildWriterSystemPrompt(config.editorial)
-  const userPrompt = buildWriterUserPrompt(sourceItemsText, prepResult, config)
+  const userPrompt = buildWriterUserPrompt(promptInput, prepResult, config)
 
   const startMs = Date.now()
   const { result, tokens, model } = await callLLMForJsonWithMeta(systemPrompt, userPrompt, {
@@ -206,6 +278,13 @@ export async function writeFinalReport(modelItems, prepResult, config, options =
     stage: 'final_write',
   })
   const durationMs = Date.now() - startMs
+  log.success('最终成稿完成', {
+    model,
+    tokens: (tokens.input || 0) + (tokens.output || 0),
+    keyDevelopments: result.keyDevelopments?.length || 0,
+    briefs: result.briefs?.length || 0,
+    ms: durationMs,
+  })
 
   if (auditor) {
     auditor.event('writer_completed', {
@@ -214,11 +293,17 @@ export async function writeFinalReport(modelItems, prepResult, config, options =
       durationMs,
       keyDevelopmentsCount: result.keyDevelopments?.length || 0,
       briefsCount: result.briefs?.length || 0,
+      inputMode: promptInput.inputMode,
+      includeRawSourceItems: promptInput.includeRawSourceItems,
+      inputCharCount: promptInput.inputCharCount,
+      targetOutputChars: promptInput.targetOutputChars,
+      maxInputOutputRatio: promptInput.maxInputOutputRatio,
+      fallback: false,
     })
   }
 
   return {
     result,
-    meta: { model, tokens, durationMs },
+    meta: { role: 'writer', stage: 'final_write', model, tokens, durationMs },
   }
 }

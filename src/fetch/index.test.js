@@ -153,4 +153,29 @@ describe('scheduler', () => {
     assert.strictEqual(result.length, 1)
     assert.strictEqual(result[0].source, 'no-type')
   })
+
+  it('prints source URL and completion progress for live tracking', async () => {
+    const { fetchAll, ADAPTERS } = fetchModule
+    const logs = []
+    process.env.LOG_LEVEL = 'info'
+    console.log = line => logs.push(String(line))
+
+    ADAPTERS['_progress_test'] = async source => [createItem(source.name || 'progress')]
+
+    const sources = [
+      { type: '_progress_test', name: 'progress-source', url: 'https://fixture.test/progress-feed' },
+    ]
+
+    const filterConfig = {
+      lookbackHours: 48,
+      keywords: [],
+      maxItems: 100,
+    }
+
+    await fetchAll(sources, filterConfig, { noDedup: true })
+
+    const output = logs.join('\n')
+    assert.match(output, /url=https:\/\/fixture\.test\/progress-feed/)
+    assert.match(output, /completed=1\/1/)
+  })
 })

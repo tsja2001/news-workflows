@@ -11,9 +11,20 @@
  */
 
 import { callLLMForJsonWithMeta } from './llm.js'
+import { createLogger } from './utils/logger.js'
 
 const DEFAULT_PERSONA = '资深国际新闻主编'
 const DEFAULT_TONE = '专业克制，有判断但不情绪化'
+
+function attachRunStats(report, models) {
+  if (!report || typeof report !== 'object') return report
+  Object.defineProperty(report, '_runStats', {
+    value: { models: models.filter(Boolean) },
+    enumerable: false,
+    configurable: true,
+  })
+  return report
+}
 
 /**
  * 构建系统提示词 —— 根据 editorial 配置动态生成 LLM 角色设定
@@ -117,8 +128,13 @@ ${itemsText}`
  */
 async function summarizeSingleModel(items, config, options = {}) {
   const auditor = options.auditor
+  const log = createLogger('summarize')
   const userPrompt = buildUserPrompt(items, config)
   const startMs = Date.now()
+  log.step('单模型总结准备完成', {
+    items: items.length,
+    userChars: userPrompt.length,
+  })
 
   if (auditor) {
     auditor.event('llm_input_prepared', {
@@ -136,6 +152,11 @@ async function summarizeSingleModel(items, config, options = {}) {
   const systemPrompt = buildSystemPrompt(config.editorial)
   const { result, tokens, model } = await callLLMForJsonWithMeta(systemPrompt, userPrompt)
   const durationMs = Date.now() - startMs
+  log.success('单模型总结完成', {
+    model,
+    tokens: (tokens.input || 0) + (tokens.output || 0),
+    ms: durationMs,
+  })
 
   if (auditor) {
     auditor.event('llm_response_received', {
@@ -145,7 +166,7 @@ async function summarizeSingleModel(items, config, options = {}) {
     })
   }
 
-  return result
+  return attachRunStats(result, [{ role: 'default', stage: 'summarize', model, tokens, durationMs }])
 }
 
 /**
@@ -154,6 +175,8 @@ async function summarizeSingleModel(items, config, options = {}) {
  */
 async function summarizeHybrid(items, config, options = {}) {
   const auditor = options.auditor
+  const log = createLogger('summarize')
+  log.step('Hybrid 总结开始', { items: items.length })
 
   // 阶段 1：预处理（失败时回退单模型）
   let prepResult
@@ -171,19 +194,24 @@ async function summarizeHybrid(items, config, options = {}) {
   // 阶段 2：最终成稿（失败策略由配置决定）
   try {
     const { writeFinalReport } = await import('./summarize/write-report.js')
-    const { result } = await writeFinalReport(prepResult.modelItems, prepResult.result, config, { auditor })
+    const writerResult = await writeFinalReport(prepResult.modelItems, prepResult.result, config, { auditor })
+    const { result } = writerResult
+    const models = [prepResult.meta, writerResult.meta]
 
     // 阶段 3：可选校验
     if (config.llmPipeline?.validation?.enabled) {
       const { validateReport } = await import('./summarize/validate.js')
+      log.step('校验最终简报', { keyDevelopments: result.keyDevelopments?.length || 0 })
       const validated = await validateReport(result, config, { auditor })
       if (validated.issues.length > 0) {
         console.error(`[校验] 发现 ${validated.issues.length} 个问题，已修复 ${validated.fixed.length} 个`)
       }
-      return validated.report
+      log.success('校验完成', { issues: validated.issues.length, fixed: validated.fixed.length })
+      return attachRunStats(validated.report, models)
     }
 
-    return result
+    log.success('Hybrid 总结完成', { keyDevelopments: result.keyDevelopments?.length || 0, briefs: result.briefs?.length || 0 })
+    return attachRunStats(result, models)
   } catch (err) {
     const onFailure = config.llmPipeline?.writer?.onFailure || 'fail'
     console.error(`[hybrid] 最终成稿失败: ${err.message}`)

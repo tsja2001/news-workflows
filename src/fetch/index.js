@@ -122,7 +122,12 @@ export async function fetchAll(sources, filterConfig, options = {}) {
 
       return pool(async () => {
         const i = idx + 1
-        slog.step(`${type}/${name}`, { progress: `${i}/${sources.length}` })
+        const sourceUrl = s.url || s.listUrl || s.endpoint || ''
+        slog.step(`开始 ${type}/${name}`, {
+          queued: `${i}/${sources.length}`,
+          completed: `${completed}/${sources.length}`,
+          url: sourceUrl,
+        })
 
         const adapter = ADAPTERS[type]
         if (!adapter) {
@@ -154,19 +159,27 @@ export async function fetchAll(sources, filterConfig, options = {}) {
         try {
           const items = await task
           const ms = Date.now() - start
-          slog.success(`${type}/${name}`, { items: items.length, ms })
+          completed++
+          slog.success(`完成 ${type}/${name}`, {
+            completed: `${completed}/${sources.length}`,
+            items: items.length,
+            ms,
+          })
           // 标记 per-source 选项
           if (s.skipKeywordFilter) {
             for (const item of items) item._skipKeywordFilter = true
           }
-          completed++
           return items
         } catch (err) {
           const ms = Date.now() - start
-          slog.error(`${type}/${name} 失败`, { ms, reason: err.message })
           failed++
-          failures.push(`${type}/${name}: ${err.message}`)
           completed++
+          slog.error(`${type}/${name} 失败`, {
+            completed: `${completed}/${sources.length}`,
+            ms,
+            reason: err.message,
+          })
+          failures.push(`${type}/${name}: ${err.message}`)
           return []
         }
       })
@@ -198,6 +211,17 @@ export async function fetchAll(sources, filterConfig, options = {}) {
   if (auditor && filtered.length < beforeTruncate) {
     auditor.event('pipeline_filter', { stage: 'truncate', before: beforeTruncate, after: filtered.length, dropped: beforeTruncate - filtered.length })
   }
+
+  Object.defineProperty(filtered, '_runStats', {
+    value: {
+      crawledItemCount: allItems.length,
+      adoptedItemCount: filtered.length,
+      sourceCount: sources.length,
+      succeededSourceCount: completed - failed,
+      failedSourceCount: failed,
+    },
+    enumerable: false,
+  })
 
   return filtered
 }

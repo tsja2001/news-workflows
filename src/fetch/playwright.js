@@ -16,6 +16,7 @@
  */
 
 import { chromium } from 'playwright-core'
+import { createLogger } from '../utils/logger.js'
 
 const USER_AGENT =
   'Mozilla/5.0 (compatible; NewsBriefBot/1.0; +https://github.com/news-workflows)'
@@ -62,13 +63,16 @@ export async function shutdownPlaywright() {
  * @returns {Promise<import('./types.js').NewsItem[]>}
  */
 export async function fetchFromPlaywright(sourceConfig, options = {}) {
+  const log = createLogger(`playwright/${sourceConfig.name}`)
   const maxArticles = sourceConfig.maxArticles || 15
   const selectors = sourceConfig.selectors || {}
   const waitTimeout = sourceConfig.waitTimeoutMs || 10000
   const blockResources = sourceConfig.blockResources !== false
+  const startMs = Date.now()
 
   let context
   try {
+    log.step('启动浏览器上下文', { blockResources })
     const browser = await getBrowser()
     context = await browser.newContext({ userAgent: USER_AGENT })
 
@@ -80,6 +84,7 @@ export async function fetchFromPlaywright(sourceConfig, options = {}) {
     const page = await context.newPage()
 
     // 1. 访问列表页
+    log.step('访问列表页', { url: sourceConfig.listUrl, waitTimeout })
     await page.goto(sourceConfig.listUrl, {
       waitUntil: 'domcontentloaded',
       timeout: waitTimeout,
@@ -92,7 +97,7 @@ export async function fetchFromPlaywright(sourceConfig, options = {}) {
 
     // 2. 提取文章链接
     if (!selectors.articleLinks) {
-      console.warn(`[playwright] ${sourceConfig.name} 缺少 selectors.articleLinks`)
+      log.warn('缺少 selectors.articleLinks')
       return []
     }
 
@@ -102,16 +107,20 @@ export async function fetchFromPlaywright(sourceConfig, options = {}) {
     )
 
     if (links.length === 0) {
-      console.warn(`[playwright] ${sourceConfig.name} 列表页未提取到链接`)
+      log.warn('列表页未提取到链接', { url: sourceConfig.listUrl })
       return []
     }
 
-    console.log(`  [playwright] ${sourceConfig.name} 列表页提取到 ${links.length} 个链接`)
+    log.success('列表页提取完成', { links: links.length })
 
     // 3. 逐个访问文章页提取内容
     const items = []
-    for (const link of links) {
+    let failed = 0
+    for (let i = 0; i < links.length; i++) {
+      const link = links[i]
       try {
+        const detailStart = Date.now()
+        log.step('抓取文章', { progress: `${i + 1}/${links.length}`, url: link })
         await page.goto(link, { waitUntil: 'domcontentloaded', timeout: waitTimeout })
 
         let title = ''
@@ -140,6 +149,13 @@ export async function fetchFromPlaywright(sourceConfig, options = {}) {
           title = await page.title()
         }
 
+        log.success('文章抓取完成', {
+          completed: `${items.length + failed + 1}/${links.length}`,
+          title,
+          length: content?.length || 0,
+          ms: Date.now() - detailStart,
+        })
+
         items.push({
           title: title || '',
           url: link,
@@ -149,14 +165,19 @@ export async function fetchFromPlaywright(sourceConfig, options = {}) {
           content,
         })
       } catch (err) {
-        const s = link.length > 60 ? link.slice(0, 60) + '…' : link
-        console.warn(`[playwright] ${sourceConfig.name} 文章抓取失败 ${s}: ${err.message}`)
+        failed++
+        log.warn('文章抓取失败', {
+          completed: `${items.length + failed}/${links.length}`,
+          reason: err.message,
+          url: link,
+        })
       }
     }
 
+    log.success('完成', { success: `${items.length}/${links.length}`, failed, ms: Date.now() - startMs })
     return items
   } catch (err) {
-    console.error(`[playwright] ${sourceConfig.name} 失败: ${err.message}`)
+    log.error('失败', { reason: err.message, ms: Date.now() - startMs })
     return []
   } finally {
     if (context) await context.close()

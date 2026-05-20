@@ -35,6 +35,36 @@ function datetimeStr() {
   return `${todayStr()}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
 }
 
+function formatNumber(n) {
+  return Number(n || 0).toLocaleString('en-US')
+}
+
+function formatModelUsage(models = []) {
+  if (!models.length) return '- 模型用量：未记录'
+
+  return models.map(m => {
+    const input = Number(m.tokens?.input || 0)
+    const output = Number(m.tokens?.output || 0)
+    const total = input + output
+    const label = [m.role, m.stage].filter(Boolean).join('/')
+    const prefix = label ? `${label} ` : ''
+    return `- ${prefix}${m.model || 'unknown'}：input ${formatNumber(input)} / output ${formatNumber(output)} / total ${formatNumber(total)} tokens`
+  }).join('\n')
+}
+
+function buildRunStatsBlock(report, items) {
+  const itemStats = items._runStats || {}
+  const reportStats = report._runStats || {}
+  const crawledItemCount = itemStats.crawledItemCount ?? items.length
+  const adoptedItemCount = itemStats.adoptedItemCount ?? items.length
+
+  return `## 本期数据
+
+- 爬取文章：${formatNumber(crawledItemCount)} 篇
+- 采用文章：${formatNumber(adoptedItemCount)} 篇
+${formatModelUsage(reportStats.models)}`
+}
+
 /**
  * 构建 Markdown 内容
  *
@@ -98,6 +128,7 @@ ${d.detail || '（无）'}`
   // 拼装：可选段落用条件渲染
   const sections = []
   sections.push(`# ${config.title}`)
+  sections.push(buildRunStatsBlock(report, items))
   if (tldrEnabled && report.tldr?.length) {
     sections.push(`## 30 秒速读\n\n${tldr}`)
   }
@@ -117,15 +148,18 @@ ${d.detail || '（无）'}`
   sections.push(`## 来源\n\n${sources}`)
 
   // frontmatter 增加 itemsUsed 字段
-  const itemsUsed = (report.keyDevelopments?.length || 0) + (report.briefs?.length || 0)
-  const itemsDropped = Math.max(0, items.length - itemsUsed)
+  const crawledItemCount = items._runStats?.crawledItemCount ?? items.length
+  const itemsUsed = items._runStats?.adoptedItemCount ?? items.length
+  const itemsDropped = Math.max(0, crawledItemCount - itemsUsed)
 
   return `---
 topic: ${config.id}
 title: ${config.title}
 date: ${date}
 generatedAt: ${generatedAt}
-sourceCount: ${items.length}
+crawledItemCount: ${crawledItemCount}
+adoptedItemCount: ${itemsUsed}
+sourceCount: ${items._runStats?.sourceCount ?? config.sources?.length ?? 0}
 itemsUsed: ${itemsUsed}
 itemsDropped: ${itemsDropped}
 ---

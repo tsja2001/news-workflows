@@ -12,6 +12,7 @@
 import Parser from 'rss-parser'
 import pRetry from 'p-retry'
 import pLimit from 'p-limit'
+import { createLogger } from '../utils/logger.js'
 import { extractArticle } from './extractor.js'
 
 const parser = new Parser({ timeout: 15000 })
@@ -30,14 +31,22 @@ const parser = new Parser({ timeout: 15000 })
  */
 export async function fetchFromRss(sourceConfig, options = {}) {
   const retries = options.retries ?? 3
+  const log = createLogger(`rss/${sourceConfig.name}`)
+  const startMs = Date.now()
 
   try {
+    log.step('拉取 RSS feed', { url: sourceConfig.url, retries })
     const feed = await pRetry(() => parser.parseURL(sourceConfig.url), {
       retries,
       minTimeout: 1000,
       maxTimeout: 10000,
       onFailedAttempt: err => {
-        console.warn(`[rss] ${sourceConfig.name} 第 ${err.attemptNumber} 次重试失败: ${err.message}`)
+        log.warn('RSS 重试失败', {
+          attempt: err.attemptNumber,
+          retries,
+          reason: err.message,
+          url: sourceConfig.url,
+        })
       },
     })
 
@@ -49,33 +58,51 @@ export async function fetchFromRss(sourceConfig, options = {}) {
       summary: item.contentSnippet || item.content || '',
     }))
 
+    log.success('RSS feed 解析完成', { items: items.length, ms: Date.now() - startMs })
+
     // 正文回抓：通过 extractor.js 回抓每个链接的正文
     if (sourceConfig.fetchFullContent && items.length > 0) {
       const concurrency = sourceConfig.fetchContentConcurrency ?? 3
       const limit = pLimit(concurrency)
+      let completed = 0
+      let failed = 0
+
+      log.step('开始正文回抓', { total: items.length, concurrency })
 
       const enriched = await Promise.all(
-        items.map(item =>
+        items.map((item, idx) =>
           limit(async () => {
+            const articleNo = idx + 1
+            log.step('正文回抓中', { progress: `${articleNo}/${items.length}`, url: item.url })
             try {
               const article = await extractArticle(item.url)
+              completed++
+              log.success('正文回抓成功', {
+                completed: `${completed + failed}/${items.length}`,
+                length: article.content?.length || 0,
+                url: item.url,
+              })
               return { ...item, content: article.content }
             } catch (err) {
-              const s = item.url.length > 60 ? item.url.slice(0, 60) + '…' : item.url
-              console.warn(`[rss] 正文回抓失败 ${s}: ${err.message}`)
+              failed++
+              log.warn('正文回抓失败', {
+                completed: `${completed + failed}/${items.length}`,
+                reason: err.message,
+                url: item.url,
+              })
               return { ...item, content: '' }
             }
           })
         )
       )
 
-      console.log(`  [rss] ${sourceConfig.name} 正文回抓完成`)
+      log.success('正文回抓完成', { success: `${completed}/${items.length}`, failed })
       return enriched
     }
 
     return items
   } catch (err) {
-    console.error(`[rss] ${sourceConfig.name} 最终失败: ${err.message}`)
+    log.error('最终失败', { reason: err.message, url: sourceConfig.url, ms: Date.now() - startMs })
     return []
   }
 }

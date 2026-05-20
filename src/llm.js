@@ -12,6 +12,7 @@
 
 import { ChatOpenAI } from '@langchain/openai'
 import { SystemMessage, HumanMessage } from '@langchain/core/messages'
+import { createLogger } from './utils/logger.js'
 
 /**
  * 按 role 读取环境变量配置，缺失时回退到 LLM_* 默认值
@@ -164,11 +165,22 @@ export async function callLLMForJsonWithMeta(systemPrompt, userPrompt, options =
   const stage = options.stage || 'summarize'
   const config = getRoleConfig(role)
   const model = createModelClient(role)
+  const log = createLogger('llm')
+  const startMs = Date.now()
 
   const messages = [
     new SystemMessage(systemPrompt),
     new HumanMessage(userPrompt),
   ]
+
+  log.step('调用模型', {
+    stage,
+    role,
+    model: config.model,
+    systemChars: systemPrompt.length,
+    userChars: userPrompt.length,
+    maxTokens: config.maxTokens,
+  })
 
   const aiMsg = await model.invoke(messages)
   const content = typeof aiMsg.content === 'string' ? aiMsg.content : JSON.stringify(aiMsg.content)
@@ -181,6 +193,18 @@ export async function callLLMForJsonWithMeta(systemPrompt, userPrompt, options =
   }
 
   const result = repairAndParseJson(content)
+  const durationMs = Date.now() - startMs
+
+  log.success('模型返回并解析完成', {
+    stage,
+    role,
+    model: config.model,
+    tokens: inputTokens + outputTokens,
+    inputTokens,
+    outputTokens,
+    responseChars: content.length,
+    ms: durationMs,
+  })
 
   return {
     result,

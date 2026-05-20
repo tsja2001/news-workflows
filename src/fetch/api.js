@@ -25,6 +25,7 @@
  */
 
 import { request } from 'undici'
+import { createLogger } from '../utils/logger.js'
 
 const USER_AGENT =
   'Mozilla/5.0 (compatible; NewsBriefBot/1.0; +https://github.com/news-workflows)'
@@ -100,17 +101,20 @@ function mapToNewsItem(rawItem, fields, sourceName) {
  * @returns {Promise<import('./types.js').NewsItem[]>}
  */
 export async function fetchFromApi(sourceConfig, options = {}) {
+  const log = createLogger(`api/${sourceConfig.name}`)
   const endpoint = sourceConfig.endpoint
   const method = sourceConfig.method || 'GET'
   const { responseShape } = sourceConfig
+  const startMs = Date.now()
 
   if (!responseShape?.itemsPath) {
-    console.error(`[api] ${sourceConfig.name} 缺少 responseShape.itemsPath`)
+    log.error('缺少 responseShape.itemsPath', { endpoint })
     return []
   }
 
   try {
     const url = endpoint + buildQuery(sourceConfig.params)
+    log.step('请求 API', { method, url })
 
     const { body, statusCode } = await request(url, {
       method,
@@ -125,12 +129,12 @@ export async function fetchFromApi(sourceConfig, options = {}) {
 
     const data = await body.json()
     const rawItems = getItems(data, responseShape.itemsPath)
-    console.log(`  [api] ${sourceConfig.name} API 返回 ${rawItems.length} 条`)
+    log.success('API 返回', { items: rawItems.length, ms: Date.now() - startMs })
     const fields = responseShape.fields || {}
 
     return rawItems.map(raw => mapToNewsItem(raw, fields, sourceConfig.name))
   } catch (err) {
-    console.error(`[api] ${sourceConfig.name} 失败: ${err.message}`)
+    log.error('失败', { reason: err.message, endpoint, ms: Date.now() - startMs })
     return []
   }
 }

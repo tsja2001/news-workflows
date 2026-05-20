@@ -20,6 +20,7 @@
 import { request } from 'undici'
 import * as cheerio from 'cheerio'
 import pLimit from 'p-limit'
+import { createLogger } from '../utils/logger.js'
 import { extractArticle } from './extractor.js'
 
 const USER_AGENT =
@@ -128,28 +129,35 @@ export function extractWithSelectors(html, selectors) {
  * @returns {Promise<import('./types.js').NewsItem[]>}
  */
 export async function fetchFromHtml(sourceConfig, options = {}) {
+  const log = createLogger(`html/${sourceConfig.name}`)
   const maxArticles = sourceConfig.maxArticles || DEFAULT_MAX_ARTICLES
   const selectors = sourceConfig.selectors || {}
   const linkPrefix = sourceConfig.linkPrefix || ''
+  const startMs = Date.now()
 
   try {
     // 1. 拉取列表页
+    log.step('拉取列表页', { url: sourceConfig.listUrl, maxArticles })
     const listHtml = await fetchPage(sourceConfig.listUrl)
     const links = extractLinks(listHtml, selectors.articleLinks, linkPrefix, maxArticles)
 
     if (links.length === 0) {
-      console.warn(`[html] ${sourceConfig.name} 列表页未提取到任何链接`)
+      log.warn('列表页未提取到任何链接', { url: sourceConfig.listUrl })
       return []
     }
 
-    console.log(`  [html] ${sourceConfig.name} 列表页提取到 ${links.length} 个链接`)
+    log.success('列表页提取完成', { links: links.length, bytes: listHtml.length })
 
     // 2. 并发抓取文章详情
     const limit = pLimit(3)
+    let completed = 0
+    let failed = 0
     const items = await Promise.all(
-      links.map(link =>
+      links.map((link, idx) =>
         limit(async () => {
+          log.step('抓取文章', { progress: `${idx + 1}/${links.length}`, url: link })
           try {
+            const detailStart = Date.now()
             const html = await fetchPage(link)
 
             const hasDetailSelectors = selectors.title || selectors.content || selectors.publishedAt
@@ -171,6 +179,14 @@ export async function fetchFromHtml(sourceConfig, options = {}) {
               content = article.content
             }
 
+            completed++
+            log.success('文章抓取完成', {
+              completed: `${completed + failed}/${links.length}`,
+              title: title || '',
+              length: content?.length || 0,
+              ms: Date.now() - detailStart,
+            })
+
             return {
               title: title || '',
               url: link,
@@ -180,8 +196,12 @@ export async function fetchFromHtml(sourceConfig, options = {}) {
               content,
             }
           } catch (err) {
-            const s = link.length > 60 ? link.slice(0, 60) + '…' : link
-            console.warn(`[html] ${sourceConfig.name} 文章抓取失败 ${s}: ${err.message}`)
+            failed++
+            log.warn('文章抓取失败', {
+              completed: `${completed + failed}/${links.length}`,
+              reason: err.message,
+              url: link,
+            })
             return null
           }
         })
@@ -189,9 +209,11 @@ export async function fetchFromHtml(sourceConfig, options = {}) {
     )
 
     // 过滤掉抓取失败的条目
-    return items.filter(Boolean)
+    const finalItems = items.filter(Boolean)
+    log.success('完成', { success: `${finalItems.length}/${links.length}`, ms: Date.now() - startMs })
+    return finalItems
   } catch (err) {
-    console.error(`[html] ${sourceConfig.name} 列表页失败: ${err.message}`)
+    log.error('列表页失败', { reason: err.message, url: sourceConfig.listUrl, ms: Date.now() - startMs })
     return []
   }
 }
