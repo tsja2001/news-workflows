@@ -30,8 +30,17 @@ index.js (CLI 入口, 串联 4 步)
 - **抓取调度** (`fetch/index.js`)：按 `source.type` 路由到对应 adapter，按类型独立并发池（rss:8, html/api:5, web/playwright:2），单源失败不中断
 - **过滤管线** (`fetch/common.js`)：时间窗口 → 关键词匹配 → 排除关键词剔除 → URL 去重（含历史去重）→ 排序截断
 - **编辑层** (`src/summarize.js`)：`buildSystemPrompt(editorial)` 动态生成 LLM 角色设定，`buildUserPrompt(items, config)` 注入读者画像、排除话题、关注方向。支持 yaml `editorial:` 段控制 persona/tone/interests/excludeTopics/lowAttentionHandling 等
+- **多模型协作** (`src/summarize/preprocess.js` + `src/summarize/write-report.js`)：hybrid 模式下 DeepSeek 是“研究助理 + 案头主任”，负责阅读原始素材、筛选、压缩、聚合并输出 `editorialPacket`；Claude 是“最终主编”，默认只读取 `editorialPacket` 做定稿，不再阅读大批量原始素材、不新增事实、不重新扩展素材范围
 - **LLM 层** (`llm.js`)：唯一接触 LangChain SDK 的地方，`ChatOpenAI` 连接任意 OpenAI 兼容服务，temperature 默认 0.6（可通过 `LLM_TEMPERATURE` 环境变量覆盖），换模型只改 `.env`
 - **输出** (`output.js`)：Markdown 带 YAML frontmatter + JSON 数据文件，精确到秒命名。支持 TL;DR 速读区、三段式关键变化（发生了什么/为什么重要/编辑怎么看）、今日短讯区
+
+## Hybrid 多模型职责边界
+
+`llmPipeline.mode: hybrid` 推荐使用 `preprocess.outputMode: editorialPacket` + `writer.inputMode: editorialPacket`：
+
+- **DeepSeek / preprocess**：读取过滤后的原始新闻，去重合并、剔除弱相关素材、判断主线、提取 evidence，生成 `editorialPacket`。正式主题默认 `maxPacketChars: 8000`，每条主线保留可追溯的 `itemId/source/url/fact`。
+- **Claude / writer**：只基于 `editorialPacket` 输出兼容 `output.js` 的最终 report JSON，负责中文表达、标题、排序、合并压缩和强化 `editorTake`。默认 `includeRawSourceItems: false`，不得新增来源、数字、人物、时间、地点，不重新扩展素材范围。
+- **审计要求**：`logs/audit` 中应记录 DeepSeek 输入条数、packet 字符数、入选/丢弃数量、Claude 输入字符数、是否附带原始素材、writer token/耗时和 fallback 状态。
 
 ## 抓取适配器
 

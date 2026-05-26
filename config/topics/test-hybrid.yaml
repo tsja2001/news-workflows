@@ -64,13 +64,18 @@ llmPipeline:
 
   preprocess:
     maxInputItems: 25
-    itemExcerptChars: 1000
-    maxClusters: 8
-    maxFactsPerCluster: 4
+    itemExcerptChars: 700
+    maxDevelopments: 5
+    maxFactsPerDevelopment: 3
+    maxBriefs: 5
+    maxPacketChars: 8000
+    outputMode: editorialPacket
 
   writer:
-    maxSourceItems: 20
-    requireOriginalEvidence: true
+    inputMode: editorialPacket
+    includeRawSourceItems: false
+    maxInputOutputRatio: 4
+    targetOutputChars: 2000
     onFailure: fallbackToPreprocessModel
 
   validation:

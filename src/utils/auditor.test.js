@@ -116,6 +116,64 @@ describe('auditor', () => {
     assert.equal(summary.pipeline.keyword?.after, 40)
   })
 
+  it('summary.json contains editorialPacket and writer input scale', () => {
+    const { createAuditor } = auditorModule
+    const auditor = createAuditor({ topic: 'test-hybrid-summary', logDir: tmpDir })
+
+    auditor.event('preprocess_input_prepared', {
+      totalItems: 60,
+      modelItemsCount: 60,
+      excerptChars: 700,
+      outputMode: 'editorialPacket',
+    })
+    auditor.event('preprocess_completed', {
+      model: 'deepseek-chat',
+      tokens: { input: 12000, output: 3000 },
+      durationMs: 100000,
+      outputMode: 'editorialPacket',
+      editorialPacket: {
+        sourceItemCount: 60,
+        selectedItemCount: 18,
+        droppedItemCount: 42,
+        packetCharCount: 7600,
+        keyDevelopmentsDraftCount: 5,
+        briefsDraftCount: 6,
+      },
+    })
+    auditor.event('writer_input_prepared', {
+      inputMode: 'editorialPacket',
+      includeRawSourceItems: false,
+      sourceItemsCount: 0,
+      inputCharCount: 8200,
+      targetOutputChars: 2000,
+      maxInputOutputRatio: 4,
+    })
+    auditor.event('writer_completed', {
+      model: 'claude-opus-4.7',
+      tokens: { input: 5000, output: 1800 },
+      durationMs: 240000,
+      inputMode: 'editorialPacket',
+      includeRawSourceItems: false,
+      inputCharCount: 8200,
+      targetOutputChars: 2000,
+      maxInputOutputRatio: 4,
+    })
+
+    const { summaryPath } = auditor.finalize()
+    const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf-8'))
+
+    const preprocess = summary.llm.stages.find(s => s.stage === 'preprocess')
+    const writer = summary.llm.stages.find(s => s.stage === 'final_write')
+
+    assert.equal(preprocess.outputMode, 'editorialPacket')
+    assert.equal(preprocess.editorialPacket.packetCharCount, 7600)
+    assert.equal(preprocess.editorialPacket.selectedItemCount, 18)
+    assert.equal(writer.inputMode, 'editorialPacket')
+    assert.equal(writer.includeRawSourceItems, false)
+    assert.equal(writer.inputCharCount, 8200)
+    assert.equal(writer.maxInputOutputRatio, 4)
+  })
+
   it('multiple scoped auditors write concurrently without corruption', () => {
     const { createAuditor } = auditorModule
     const auditor = createAuditor({ topic: 'test-concurrent', logDir: tmpDir })

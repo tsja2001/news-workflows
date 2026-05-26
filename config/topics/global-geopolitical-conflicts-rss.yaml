@@ -545,16 +545,21 @@ llmPipeline:
 
   # 阶段 1：DeepSeek 预处理（研究助理）
   preprocess:
-    maxInputItems: 80         # 最多读多少条
-    itemExcerptChars: 1000    # 每条摘录长度（字符）
-    maxClusters: 12           # 最多产出几组候选主线
-    maxFactsPerCluster: 5     # 每组最多几条事实
+    maxInputItems: 80             # 最多读多少条
+    itemExcerptChars: 700         # 每条摘录长度（字符）
+    maxDevelopments: 6            # 最多产出几条候选主线
+    maxFactsPerDevelopment: 3     # 每条主线最多几条关键事实
+    maxBriefs: 6                  # 最多产出几条短讯草稿
+    maxPacketChars: 8000          # 交给 Claude 的编辑包目标字符数
+    outputMode: editorialPacket   # DeepSeek 输出压缩编辑包
 
   # 阶段 2：Claude 最终成稿（主编）
   writer:
-    maxSourceItems: 35        # Claude 最多读多少条精简素材
-    requireOriginalEvidence: true
-    onFailure: fail           # fail=直接报错, fallbackToPreprocessModel=回退单模型
+    inputMode: editorialPacket
+    includeRawSourceItems: false  # 默认不再把原始素材附给 Claude
+    maxInputOutputRatio: 4
+    targetOutputChars: 2000
+    onFailure: fail              # fail=直接报错, fallbackToPreprocessModel=回退单模型
 
   # 阶段 3：校验（二期，暂不启用）
   validation:

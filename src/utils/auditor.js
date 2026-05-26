@@ -296,6 +296,12 @@ function buildSummary(jsonlPath, topic, runId) {
 
         // ── 多阶段 LLM 事件 ──
         case 'preprocess_input_prepared':
+          summary.llm.preprocessInput = {
+            totalItems: data.totalItems || 0,
+            modelItemsCount: data.modelItemsCount || 0,
+            excerptChars: data.excerptChars || 0,
+            outputMode: data.outputMode || '',
+          }
           if (data.tokens) {
             totalInputTokens += data.tokens.input || 0
             totalOutputTokens += data.tokens.output || 0
@@ -317,6 +323,8 @@ function buildSummary(jsonlPath, topic, runId) {
               outputTokens: data.tokens?.output || 0,
               estimatedCost: `约 ¥${cost.toFixed(4)}`,
               durationMs: data.durationMs || 0,
+              outputMode: data.outputMode || '',
+              editorialPacket: data.editorialPacket || null,
               clustersCount: data.clustersCount,
               briefCandidatesCount: data.briefCandidatesCount,
               dropCandidatesCount: data.dropCandidatesCount,
@@ -326,6 +334,14 @@ function buildSummary(jsonlPath, topic, runId) {
           break
 
         case 'writer_input_prepared':
+          summary.llm.writerInput = {
+            inputMode: data.inputMode || '',
+            includeRawSourceItems: data.includeRawSourceItems === true,
+            sourceItemsCount: data.sourceItemsCount || 0,
+            inputCharCount: data.inputCharCount || 0,
+            targetOutputChars: data.targetOutputChars || 0,
+            maxInputOutputRatio: data.maxInputOutputRatio || 0,
+          }
           break
         case 'writer_completed':
           if (data.tokens) {
@@ -343,6 +359,11 @@ function buildSummary(jsonlPath, topic, runId) {
               outputTokens: data.tokens?.output || 0,
               estimatedCost: `约 ¥${cost.toFixed(4)}`,
               durationMs: data.durationMs || 0,
+              inputMode: data.inputMode || summary.llm.writerInput?.inputMode || '',
+              includeRawSourceItems: data.includeRawSourceItems === true,
+              inputCharCount: data.inputCharCount || summary.llm.writerInput?.inputCharCount || 0,
+              targetOutputChars: data.targetOutputChars || summary.llm.writerInput?.targetOutputChars || 0,
+              maxInputOutputRatio: data.maxInputOutputRatio || summary.llm.writerInput?.maxInputOutputRatio || 0,
               keyDevelopmentsCount: data.keyDevelopmentsCount,
               briefsCount: data.briefsCount,
             })
